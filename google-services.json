@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "797437624053",
+    "project_id": "estetica-e0333",
+    "storage_bucket": "estetica-e0333.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797437624053:android:a4d102c64f83c860a28fbc",
+        "android_client_info": {
+          "package_name": "com.example.esteticaapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuwwz42eOa02ptM9kupmsX6V-7Wo0srtA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
