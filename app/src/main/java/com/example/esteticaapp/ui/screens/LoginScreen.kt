@@ -33,6 +33,7 @@ import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -50,6 +51,7 @@ fun LoginScreen(
     val viewModel: LoginViewModel = viewModel()
     val loginState by viewModel.loginState.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     // Estado global de carga para bloquear UI
     val isAnyLoading = isLoadingEmail || loginState is LoginState.Loading
@@ -57,7 +59,11 @@ fun LoginScreen(
     LaunchedEffect(loginState) {
         when (loginState) {
             is LoginState.Success -> {
-                onNavigateTo((loginState as LoginState.Success).navigateTo)
+                val destination = (loginState as LoginState.Success).navigateTo
+                // Si LoginScreen está embebido en MainActivity usando el estado 'currentScreen',
+                // necesitamos una forma de comunicarle el cambio de pantalla al padre.
+                // Sin embargo, LoginScreen recibe 'onNavigateTo'.
+                onNavigateTo(destination)
                 viewModel.resetState()
             }
             is LoginState.Error -> {
@@ -161,13 +167,14 @@ fun LoginScreen(
                     errorMessage = null
                     FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
                         .addOnSuccessListener {
-                            isLoadingEmail = false
-                            if (AdminConfig.isAdmin(email)) {
-                                onNavigateTo("admin_dashboard")
-                            } else {
-                                // Al igual que con Google, deberíamos verificar si el usuario existe en Firestore
-                                // Para simplificar y mantener consistencia, podrías mover esta lógica al ViewModel
-                                onLoginSuccess(email) 
+                            // Usamos coroutineScope para llamar a la función suspendida isAdmin
+                            coroutineScope.launch {
+                                isLoadingEmail = false
+                                if (AdminConfig.isAdmin(email)) {
+                                    onNavigateTo("admin_dashboard")
+                                } else {
+                                    onLoginSuccess(email) 
+                                }
                             }
                         }
                         .addOnFailureListener { e ->
@@ -213,7 +220,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón de Google con Credential Manager
+        // Botón de Google with Credential Manager
         OutlinedButton(
             onClick = { viewModel.signInWithGoogle(context) },
             modifier = Modifier

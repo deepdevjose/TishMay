@@ -69,7 +69,7 @@ class LoginViewModel : ViewModel() {
 
     private suspend fun checkUserExists(uid: String, email: String?) {
         try {
-            // Verificar si es administrador primero
+            // Verificar si es administrador consultando Firestore (ahora es una función suspendida)
             if (AdminConfig.isAdmin(email)) {
                 _loginState.value = LoginState.Success(navigateTo = "admin_dashboard")
                 return
