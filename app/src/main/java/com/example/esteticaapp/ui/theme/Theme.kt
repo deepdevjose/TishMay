@@ -41,14 +41,9 @@ fun EsteticaAppTheme(
     dynamicColor: Boolean = false, // Disabled for brand consistency
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    // Forzamos el uso de LightColorScheme para mantener la consistencia de marca
+    // y evitar problemas de visibilidad en dispositivos con modo oscuro forzado.
+    val colorScheme = LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

@@ -22,17 +22,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.esteticaapp.ui.theme.BackgroundPink
 import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
+import com.google.firebase.auth.ActionCodeSettings
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileRegistrationScreen(
-    onSaveClick: () -> Unit = {},
+    onSaveSuccess: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     BackHandler { onBackClick() }
@@ -44,6 +48,12 @@ fun ProfileRegistrationScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
+
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     var selectedAvatar by remember { mutableStateOf(Icons.Default.Person) }
     var showAvatarDialog by remember { mutableStateOf(false) }
@@ -120,6 +130,12 @@ fun ProfileRegistrationScreen(
                 }
                 Text("Selecciona tu estilo", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            if (errorMessage != null) {
+                item {
+                    Text(text = errorMessage!!, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             // --- SECCIÓN: INFORMACIÓN PERSONAL ---
@@ -213,10 +229,16 @@ fun ProfileRegistrationScreen(
                     value = password,
                     onValueChange = { password = it },
                     label = "Contraseña",
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     imeAction = ImeAction.Next,
                     isError = !isPasswordValid && password.isNotEmpty(),
-                    supportingText = if (!isPasswordValid && password.isNotEmpty()) "Mínimo 6 caracteres" else null
+                    supportingText = if (!isPasswordValid && password.isNotEmpty()) "Mínimo 6 caracteres" else null,
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
+                        }
+                    }
                 )
             }
 
@@ -225,18 +247,65 @@ fun ProfileRegistrationScreen(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
                     label = "Confirmar Contraseña",
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     imeAction = ImeAction.Done,
                     isError = !passwordsMatch && confirmPassword.isNotEmpty(),
-                    supportingText = if (!passwordsMatch && confirmPassword.isNotEmpty()) "Las contraseñas no coinciden" else null
+                    supportingText = if (!passwordsMatch && confirmPassword.isNotEmpty()) "Las contraseñas no coinciden" else null,
+                    trailingIcon = {
+                        val image = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
+                        }
+                    }
                 )
             }
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
-                    onClick = onSaveClick,
-                    enabled = isFormValid,
+                    onClick = {
+                        isLoading = true
+                        errorMessage = null
+                        val auth = FirebaseAuth.getInstance()
+                        auth.createUserWithEmailAndPassword(email, password)
+                            .addOnSuccessListener { authResult ->
+                                val user = authResult.user
+                                // Enviar correo de verificación de forma explícita
+                                user?.sendEmailVerification()
+                                    ?.addOnSuccessListener {
+                                        val userData = hashMapOf(
+                                            "uid" to user.uid,
+                                            "firstName" to firstName,
+                                            "lastName" to lastName,
+                                            "age" to age,
+                                            "sex" to sex,
+                                            "email" to email,
+                                            "role" to "client",
+                                            "cancellationCount" to 0
+                                        )
+                                        FirebaseFirestore.getInstance().collection("clientes")
+                                            .document(user.uid)
+                                            .set(userData)
+                                            .addOnSuccessListener {
+                                                isLoading = false
+                                                onSaveSuccess()
+                                            }
+                                            .addOnFailureListener { e ->
+                                                isLoading = false
+                                                errorMessage = "Error guardando datos: ${e.localizedMessage}"
+                                            }
+                                    }
+                                    ?.addOnFailureListener { e ->
+                                        isLoading = false
+                                        errorMessage = "Error enviando verificación: ${e.localizedMessage}"
+                                    }
+                            }
+                            .addOnFailureListener { e ->
+                                isLoading = false
+                                errorMessage = "Error en registro: ${e.localizedMessage}"
+                            }
+                    },
+                    enabled = isFormValid && !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -246,7 +315,11 @@ fun ProfileRegistrationScreen(
                         disabledContainerColor = PrimaryPink.copy(alpha = 0.5f)
                     )
                 ) {
-                    Text("Crear Perfil", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text("Crear Perfil", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -283,9 +356,10 @@ fun CustomTextField(
     modifier: Modifier = Modifier,
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Default,
-    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     isError: Boolean = false,
-    supportingText: String? = null
+    supportingText: String? = null,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     TextField(
         value = value,
@@ -297,6 +371,7 @@ fun CustomTextField(
         visualTransformation = visualTransformation,
         isError = isError,
         supportingText = supportingText?.let { { Text(it) } },
+        trailingIcon = trailingIcon,
         colors = textFieldColors()
     )
 }

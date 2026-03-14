@@ -2,23 +2,30 @@ package com.example.esteticaapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Material 3 Base Colors
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// Premium Brand Palette - TISHMAY
+val BackgroundPink = Color(0xFFFFF8F9) // Ultra light rose
+val SoftRose = Color(0xFFFFE4E9)      // Soft accent rose
+val PrimaryPink = Color(0xFFE96A8D)    // Main Brand Pink
+val DarkRose = Color(0xFFC14D6B)       // Deep accent rose
+val PrimaryDarkPink = Color(0xFFB83B5E) // Darker variant of brand pink
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Accents
+val GoldAccent = Color(0xFFD4AF37)     // Luxury Gold
+val SoftWhite = Color(0xFFFFFBFE)      // Material Neutral
 
-// TISHMAY Premium Palette (Improved Contrast)
-val BackgroundPink = Color(0xFFFFF5F7)
-val PrimaryPink = Color(0xFFE96A8D)
-val PrimaryDarkPink = Color(0xFFD8587C)
-val TextPrimary = Color(0xFF2B2B2B)
-val TextSecondary = Color(0xFF777777)
+// Neutrals & Text
+val TextPrimary = Color(0xFF1F1F1F)    // High contrast black
+val TextSecondary = Color(0xFF666666)  // Medium grey
+val TitleGrey = Color(0xFF4A4A4A)      // Grey for titles
+val DividerColor = Color(0xFFE0E0E0)   // Subtle lines
 
-// Brand Accents
-val GoldAccent = Color(0xFFD4AF37)
-val SoftWhite = Color(0xFFFFFBFE)
-val VibrantPink = Color(0xFFFF85A1) // Keeping for compatibility, but moving to PrimaryPink
+// Semantic
+val SuccessGreen = Color(0xFF4CAF50)
+val ErrorRed = Color(0xFFD32F2F)
+val InfoBlue = Color(0xFF2196F3)
+
+// Legacy compatibility (mapping to new palette)
+val PalePink = BackgroundPink
+val DeepBlack = TextPrimary
+val Gold = GoldAccent
+val VibrantPink = PrimaryPink
