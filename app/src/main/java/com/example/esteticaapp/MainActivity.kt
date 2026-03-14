@@ -27,6 +27,9 @@ class MainActivity : ComponentActivity() {
             EsteticaAppTheme {
                 // Estado inicial de carga ("splash") mientras verificamos el rol del usuario
                 var currentScreen by remember { mutableStateOf("splash") }
+                
+                // Estado para pasar el email a la pantalla de ForgotPassword
+                var forgotPasswordInitialEmail by remember { mutableStateOf("") }
 
                 // Verificación de sesión y rol al inicio
                 LaunchedEffect(Unit) {
@@ -69,7 +72,10 @@ class MainActivity : ComponentActivity() {
                             currentScreen = "main" 
                         },
                         onRegisterClick = { currentScreen = "register" },
-                        onForgotPasswordClick = { currentScreen = "forgot_password" },
+                        onForgotPasswordClick = { email -> 
+                            forgotPasswordInitialEmail = email
+                            currentScreen = "forgot_password" 
+                        },
                         onNavigateTo = { screen ->
                             // CORRECCIÓN: Si el login devuelve "agenda", redirigimos a "main" 
                             // porque "agenda" no existe en este when (está dentro de MainScreen)
@@ -91,6 +97,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     "forgot_password" -> ForgotPasswordScreen(
+                        initialEmail = forgotPasswordInitialEmail,
                         onBackToLogin = { currentScreen = "login" }
                     )
                     "admin_dashboard" -> AdminDashboardScreen(

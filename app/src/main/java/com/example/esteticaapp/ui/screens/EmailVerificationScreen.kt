@@ -13,12 +13,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.esteticaapp.ui.theme.BackgroundPink
 import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.delay
 
 @Composable
 fun EmailVerificationScreen(
@@ -78,12 +76,22 @@ fun EmailVerificationScreen(
 
         TextButton(
             onClick = {
-                isResending = true
-                auth.currentUser?.sendEmailVerification()
-                    ?.addOnCompleteListener {
-                        isResending = false
-                        resendMessage = if (it.isSuccessful) "Correo reenviado con éxito" else "Error al reenviar"
-                    }
+                val user = auth.currentUser
+                if (user != null) {
+                    isResending = true
+                    user.sendEmailVerification()
+                        .addOnCompleteListener { task ->
+                            isResending = false
+                            if (task.isSuccessful) {
+                                resendMessage = "Correo reenviado con éxito"
+                            } else {
+                                val error = task.exception?.localizedMessage ?: "Error desconocido"
+                                resendMessage = "Error al reenviar: $error"
+                            }
+                        }
+                } else {
+                    resendMessage = "Sesión no válida. Por favor, inicia sesión nuevamente."
+                }
             },
             enabled = !isResending
         ) {

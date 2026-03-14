@@ -21,29 +21,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.esteticaapp.HomeViewModel
 import com.example.esteticaapp.ui.theme.*
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.esteticaapp.ui.theme.Dimensions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToBook: () -> Unit = {},
     onNavigateToScan: () -> Unit = {},
-    onNavigateToAppointments: () -> Unit = {}
+    onNavigateToAppointments: () -> Unit = {},
+    viewModel: HomeViewModel = viewModel()
 ) {
-    val auth = FirebaseAuth.getInstance()
-    val db = FirebaseFirestore.getInstance()
-    val currentUser = auth.currentUser
-    var userName by remember { mutableStateOf("") }
-
-    LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            db.collection("clientes").document(currentUser.uid).get().addOnSuccessListener { doc ->
-                userName = doc.getString("firstName") ?: ""
-            }
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
+    val userName = uiState.userName
 
     Scaffold(
         containerColor = BackgroundPink
@@ -52,9 +44,9 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            contentPadding = PaddingValues(top = 32.dp, bottom = 32.dp)
+                .padding(horizontal = Dimensions.PaddingLarge),
+            verticalArrangement = Arrangement.spacedBy(Dimensions.SpacerExtraLarge),
+            contentPadding = PaddingValues(top = Dimensions.PaddingExtraLarge, bottom = Dimensions.PaddingExtraLarge)
         ) {
             // Header: Bienvenida Personalizada
             item {
@@ -81,7 +73,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
-                        .clip(RoundedCornerShape(32.dp))
+                        .clip(RoundedCornerShape(Dimensions.CornerRadiusHuge))
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(PrimaryPink, DarkRose)
@@ -91,12 +83,12 @@ fun HomeScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .padding(24.dp)
+                            .padding(Dimensions.PaddingLarge)
                             .align(Alignment.CenterStart)
                     ) {
                         Surface(
                             color = Color.White.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(Dimensions.CornerRadiusMedium)
                         ) {
                             Text(
                                 text = "NUEVO",
@@ -106,7 +98,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(Dimensions.SpacerMedium))
                         Text(
                             text = "Análisis IA",
                             style = MaterialTheme.typography.headlineMedium.copy(
@@ -126,7 +118,7 @@ fun HomeScreen(
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(24.dp)
+                            .padding(Dimensions.PaddingLarge)
                             .size(64.dp),
                         tint = Color.White.copy(alpha = 0.3f)
                     )
@@ -145,7 +137,7 @@ fun HomeScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimensions.SpacerMedium)
                 ) {
                     QuickActionCard(
                         title = "Agendar",
@@ -171,22 +163,22 @@ fun HomeScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(Dimensions.CornerRadiusExtraLarge),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Row(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.padding(Dimensions.PaddingExtraLarge),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(Dimensions.IconSizeExtraLarge)
                                 .background(GoldAccent.copy(alpha = 0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Default.TipsAndUpdates, contentDescription = null, tint = GoldAccent)
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(Dimensions.SpacerMedium))
                         Column {
                             Text(
                                 text = "Tip del día",
