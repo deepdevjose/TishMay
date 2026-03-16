@@ -534,7 +534,12 @@ fun AppointmentForm(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        selectedDate = sdf.format(Date(it))
+                        // El DatePickerState devuelve la fecha en UTC (medianoche).
+                        // Para evitar el desfase por zona horaria al formatear, usamos UTC explícitamente.
+                        val utcFormat = SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()).apply {
+                            timeZone = TimeZone.getTimeZone("UTC")
+                        }
+                        selectedDate = utcFormat.format(Date(it))
                     }
                     showDatePicker = false
                 }) { Text("Seleccionar", color = PrimaryPink, fontWeight = FontWeight.Bold) }

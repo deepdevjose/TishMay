@@ -16,7 +16,7 @@ camerax = "1.5.3"
 accompanist = "0.37.3"
 konfetti = "2.0.5"
 mlkitFaceDetection = "16.1.7"
-kotlinxCoroutinesPlayServices = "1.9.0"
+kotlinxCoroutinesPlayServices = "1.10.2"
 coil = "2.7.0"
 cloudinary = "3.1.2"
 
