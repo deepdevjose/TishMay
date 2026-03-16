@@ -49,16 +49,19 @@ import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
+    initialEmail: String = "",
     onLoginSuccess: (String) -> Unit,
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: (String) -> Unit,
     onNavigateTo: (String) -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(initialEmail) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoadingEmail by remember { mutableStateOf(false) }
@@ -118,7 +121,7 @@ fun LoginScreen(
                     coroutineScope.launch {
                         isLoadingEmail = false
                         if (AdminConfig.isAdmin(email)) {
-                            onNavigateTo("admin_dashboard")
+                            onNavigateTo("admin_welcome")
                         } else {
                             onLoginSuccess(email) 
                         }
@@ -128,7 +131,7 @@ fun LoginScreen(
                     // Haptic feedback también aquí por si acaso
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     isLoadingEmail = false
-                    errorMessage = "Correo o contraseña incorrectos" // Mejora 9: Mensaje limpio sin "Error:"
+                    errorMessage = getFirebaseErrorMessage(e)
                 }
         } else {
              // Validación de campos vacíos manejada en UI individual o aquí
@@ -474,5 +477,21 @@ fun LoginScreen(
                 }
             }
         }
+    }
+}
+
+// Helper para traducir errores de Firebase
+private fun getFirebaseErrorMessage(e: Exception?): String {
+    val message = e?.localizedMessage?.lowercase() ?: ""
+    return when {
+        e is FirebaseAuthInvalidUserException || message.contains("no user record") ->
+            "No existe una cuenta con este correo."
+        e is FirebaseAuthInvalidCredentialsException || message.contains("invalid") ->
+            "Correo o contraseña incorrectos."
+        message.contains("network") || message.contains("connection") || message.contains("host") ->
+            "No hay conexión a internet. Verifica tu red."
+        message.contains("too many requests") ->
+            "Demasiados intentos fallidos. Intenta más tarde."
+        else -> "Ha ocurrido un error. Intenta nuevamente."
     }
 }

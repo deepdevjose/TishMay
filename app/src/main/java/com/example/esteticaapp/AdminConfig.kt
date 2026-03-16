@@ -13,7 +13,8 @@ object AdminConfig {
         if (email.isNullOrBlank()) return false
         
         val emailKey = email.lowercase().trim()
-        Log.d("AdminConfig", "Verificando si es admin: $emailKey")
+        
+        Log.d("AdminConfig", "Verificando si es admin en DB: $emailKey")
 
         return try {
             val db = FirebaseFirestore.getInstance()

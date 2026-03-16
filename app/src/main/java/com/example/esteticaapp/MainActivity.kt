@@ -4,15 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.esteticaapp.ui.screens.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.example.esteticaapp.ui.theme.EsteticaAppTheme
+import com.example.esteticaapp.ui.screens.*
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +37,10 @@ class MainActivity : ComponentActivity() {
             EsteticaAppTheme {
                 // Estado inicial de carga ("splash") mientras verificamos el rol del usuario
                 var currentScreen by remember { mutableStateOf("splash") }
+                val scope = rememberCoroutineScope()
                 
-                // Estado para pasar el email a la pantalla de ForgotPassword
-                var forgotPasswordInitialEmail by remember { mutableStateOf("") }
+                // Estado para pasar el email a la pantalla de ForgotPassword y Login
+                var initialEmailState by remember { mutableStateOf("") }
 
                 // Verificación de sesión y rol al inicio
                 LaunchedEffect(Unit) {
@@ -38,18 +49,16 @@ class MainActivity : ComponentActivity() {
                         if (user.isEmailVerified) {
                             // Verificamos rol de admin de forma asíncrona
                             if (AdminConfig.isAdmin(user.email)) {
-                                currentScreen = "admin_dashboard"
+                                currentScreen = "admin_welcome"
                             } else {
                                 currentScreen = "main"
                             }
                         } else {
                             // Usuario existe pero no ha verificado email
-                            // (Opcional: Verificar si es admin igual, por si acaso es un admin sin verificar, 
-                            // aunque por seguridad mejor requerir verificación)
                             if (AdminConfig.isAdmin(user.email)) {
-                                currentScreen = "admin_dashboard"
+                                currentScreen = "admin_welcome"
                             } else {
-                                currentScreen = "email_verification" // O mandarlo a login/verificación
+                                currentScreen = "email_verification"
                             }
                         }
                     } else {
@@ -67,52 +76,79 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     "login" -> LoginScreen(
-                        onLoginSuccess = { _ -> 
-                            // Navegación para login manual (Email/Password)
-                            currentScreen = "main" 
+                        initialEmail = initialEmailState,
+                        onLoginSuccess = { email -> 
+                            scope.launch {
+                                if (AdminConfig.isAdmin(email)) {
+                                    currentScreen = "admin_welcome"
+                                } else {
+                                    currentScreen = "main"
+                                }
+                            }
                         },
                         onRegisterClick = { currentScreen = "register" },
                         onForgotPasswordClick = { email -> 
-                            forgotPasswordInitialEmail = email
+                            initialEmailState = email
                             currentScreen = "forgot_password" 
                         },
                         onNavigateTo = { screen ->
-                            // CORRECCIÓN: Si el login devuelve "agenda", redirigimos a "main" 
-                            // porque "agenda" no existe en este when (está dentro de MainScreen)
                             if (screen == "agenda") {
                                 currentScreen = "main"
+                            } else if (screen == "admin_dashboard") {
+                                // Redirigir a welcome para admins si intentan ir directo al dashboard
+                                currentScreen = "admin_welcome"
                             } else {
                                 currentScreen = screen
                             }
                         }
                     )
                     "register" -> ProfileRegistrationScreen(
-                        onSaveSuccess = { currentScreen = "email_verification" },
+                        onSaveSuccess = { email -> 
+                            initialEmailState = email
+                            currentScreen = "email_verification" 
+                        },
                         onBackClick = { currentScreen = "login" }
                     )
                     "email_verification" -> EmailVerificationScreen(
                         onBackToLogin = { 
-                            auth.signOut() // Cerramos sesión para que al volver a entrar se valide de nuevo
+                            auth.signOut()
                             currentScreen = "login" 
                         }
                     )
                     "forgot_password" -> ForgotPasswordScreen(
-                        initialEmail = forgotPasswordInitialEmail,
+                        initialEmail = initialEmailState,
                         onBackToLogin = { currentScreen = "login" }
+                    )
+                    "admin_welcome" -> AdminWelcomeScreen(
+                        onNavigateToDashboard = { currentScreen = "admin_dashboard" },
+                        onNavigateToGallery = { currentScreen = "admin_gallery" },
+                        onLogout = {
+                            auth.signOut()
+                            currentScreen = "login"
+                        }
                     )
                     "admin_dashboard" -> AdminDashboardScreen(
                         onLogout = { 
                             auth.signOut()
                             currentScreen = "login" 
-                        }
+                        },
+                        onBackToWelcome = { currentScreen = "admin_welcome" }
                     )
+                    "admin_gallery" -> {
+                        AdminGalleryScreen(
+                            onBack = { currentScreen = "admin_welcome" },
+                            onLogout = {
+                                auth.signOut()
+                                currentScreen = "login"
+                            }
+                        )
+                    }
                     "main" -> MainScreen(
                         onLogout = { 
                             auth.signOut()
                             currentScreen = "login" 
                         }
                     )
-                    // Eliminamos el caso "agenda" directo para forzar el uso de MainScreen
                 }
             }
         }

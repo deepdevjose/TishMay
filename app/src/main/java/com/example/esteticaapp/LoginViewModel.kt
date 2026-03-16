@@ -3,7 +3,9 @@ package com.example.esteticaapp
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -60,25 +62,32 @@ class LoginViewModel : ViewModel() {
                 }
                 
             } catch (e: GetCredentialException) {
-                _loginState.value = LoginState.Error(e.localizedMessage ?: "Error de autenticación con Credential Manager")
+                // Manejo específico de errores de Credential Manager
+                val errorMessage = when {
+                    e is GetCredentialCancellationException -> "Inicio de sesión cancelado."
+                    e is NoCredentialException || e.message?.contains("No credentials available") == true -> 
+                        "No sincronizó con Google. Verifica tu conexión a internet."
+                    else -> "Error de autenticación con Google: ${e.localizedMessage}"
+                }
+                _loginState.value = LoginState.Error(errorMessage)
             } catch (e: Exception) {
-                _loginState.value = LoginState.Error(e.localizedMessage ?: "Error inesperado: ${e.message}")
+                _loginState.value = LoginState.Error("Error inesperado: ${e.message}")
             }
         }
     }
 
     private suspend fun checkUserExists(uid: String, email: String?) {
         try {
-            // Verificar si es administrador consultando Firestore (ahora es una función suspendida)
+            // Verificar si es administrador consultando Firestore
             if (AdminConfig.isAdmin(email)) {
-                _loginState.value = LoginState.Success(navigateTo = "admin_dashboard")
+                _loginState.value = LoginState.Success(navigateTo = "admin_welcome")
                 return
             }
 
             // Buscar el uid en la colección 'clientes' de Firestore
             val document = db.collection("clientes").document(uid).get().await()
             if (document.exists()) {
-                _loginState.value = LoginState.Success(navigateTo = "agenda")
+                _loginState.value = LoginState.Success(navigateTo = "main")
             } else {
                 _loginState.value = LoginState.Success(navigateTo = "register")
             }

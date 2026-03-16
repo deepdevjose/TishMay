@@ -1,6 +1,7 @@
 package com.example.esteticaapp.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,28 +23,42 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.esteticaapp.ui.theme.BackgroundPink
 import com.example.esteticaapp.ui.theme.Dimensions
 import com.example.esteticaapp.ui.theme.PrimaryPink
-import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
-import com.google.firebase.auth.ActionCodeSettings
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.UserProfileChangeRequest
 import java.util.Calendar
+
+// Agregar mapa de avatares disponibles globalmente para reutilizar
+val predefinedAvatars = listOf(
+    "face_3" to Icons.Default.Face3,      // Mujer
+    "face_4" to Icons.Default.Face4,      // Mujer
+    "woman" to Icons.Default.Woman,       // Mujer
+    "person" to Icons.Default.Person,     // Neutro
+    "face" to Icons.Default.Face,         // Neutro/Hombre
+    "man" to Icons.Default.Man,           // Hombre
+    "spa" to Icons.Default.Spa,           // Estética
+    "self_improvement" to Icons.Default.SelfImprovement,
+    "emoji_people" to Icons.Default.EmojiPeople
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileRegistrationScreen(
-    onSaveSuccess: () -> Unit = {},
+    onSaveSuccess: (String) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     var step by remember { mutableIntStateOf(1) } // 1: Cuenta, 2: Perfil
@@ -58,7 +73,11 @@ fun ProfileRegistrationScreen(
     var birthDateDisplay by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") } // Se calcula automáticamente
     var sex by remember { mutableStateOf("") }
-    var selectedAvatar by remember { mutableStateOf(Icons.Default.Person) }
+    
+    // Avatar seleccionado (guardamos la clave "string", no el ícono)
+    var selectedAvatarKey by remember { mutableStateOf("person") }
+    // Helper para obtener el ícono visual
+    val selectedAvatarIcon = predefinedAvatars.find { it.first == selectedAvatarKey }?.second ?: Icons.Default.Person
 
     // Datos de la Cuenta
     var email by remember { mutableStateOf("") }
@@ -75,12 +94,12 @@ fun ProfileRegistrationScreen(
     var expandedSex by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val sexOptions = listOf("Femenino", "Masculino", "Prefiero no decirlo")
+    val sexOptions = listOf("Femenino", "Masculino", "Prefiero no decirlo", "Otro")
     val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-z]{2,}$".toRegex()
 
     // Validaciones
     val isEmailValid = email.isEmpty() || email.matches(emailRegex)
-    val isPasswordValid = password.length >= 6
+    val isPasswordValid = password.length >= 8 // Mejor seguridad (8 chars)
     val passwordsMatch = password == confirmPassword
     
     val isStep1Valid = email.isNotBlank() && isEmailValid && 
@@ -92,8 +111,25 @@ fun ProfileRegistrationScreen(
                        age.isNotBlank() && 
                        sex.isNotBlank()
 
-    // DatePicker State
-    val datePickerState = rememberDatePickerState()
+    // DatePicker State con validación de edad
+    val maxDateMillis = remember {
+        val c = Calendar.getInstance()
+        c.add(Calendar.YEAR, -13)
+        c.timeInMillis
+    }
+    val minDateMillis = remember {
+        val c = Calendar.getInstance()
+        c.add(Calendar.YEAR, -100)
+        c.timeInMillis
+    }
+
+    val datePickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                return utcTimeMillis <= maxDateMillis && utcTimeMillis >= minDateMillis
+            }
+        }
+    )
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -104,15 +140,18 @@ fun ProfileRegistrationScreen(
                     datePickerState.selectedDateMillis?.let { millis ->
                         val calendar = Calendar.getInstance()
                         calendar.timeInMillis = millis
+                        // Ajustar zona horaria si es necesario o simplificar
+                        // Nota: DatePicker usa UTC
+                        
                         val day = calendar.get(Calendar.DAY_OF_MONTH)
                         val month = calendar.get(Calendar.MONTH) + 1
                         val year = calendar.get(Calendar.YEAR)
-                        birthDateDisplay = "$day/$month/$year"
+                        birthDateDisplay = "$day/$month/$year" // Formato local simple
                         
-                        // Calcular edad
-                        val today = Calendar.getInstance()
-                        var calculatedAge = today.get(Calendar.YEAR) - year
-                        if (today.get(Calendar.DAY_OF_YEAR) < calendar.get(Calendar.DAY_OF_YEAR)) {
+                        // Calcular edad precisa
+                        val current = Calendar.getInstance()
+                        var calculatedAge = current.get(Calendar.YEAR) - year
+                        if (current.get(Calendar.DAY_OF_YEAR) < calendar.get(Calendar.DAY_OF_YEAR)) {
                             calculatedAge--
                         }
                         age = calculatedAge.toString()
@@ -123,7 +162,14 @@ fun ProfileRegistrationScreen(
                 TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
             }
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                title = { Text("Seleccionar fecha", modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
+                headline = { 
+                    // Formato corto manual si lo deseas, o dejar default
+                   // Text("Fecha de nacimiento", modifier = Modifier.padding(start = 24.dp))
+                }
+            )
         }
     }
 
@@ -151,6 +197,7 @@ fun ProfileRegistrationScreen(
         },
         containerColor = BackgroundPink
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -163,195 +210,223 @@ fun ProfileRegistrationScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Paso 1
                 Box(modifier = Modifier
-                    .size(10.dp)
+                    .size(if (step == 1) 12.dp else 10.dp)
                     .clip(CircleShape)
-                    .background(if (step >= 1) PrimaryPink else Color.LightGray))
+                    .background(if (step >= 1) PrimaryPink else Color.LightGray)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
+                // Linea conector
+                Box(modifier = Modifier.width(20.dp).height(2.dp).background(if (step >= 2) PrimaryPink else Color.LightGray))
+                Spacer(modifier = Modifier.width(8.dp))
+                // Paso 2
                 Box(modifier = Modifier
-                    .size(10.dp)
+                    .size(if (step == 2) 12.dp else 10.dp)
                     .clip(CircleShape)
-                    .background(if (step >= 2) PrimaryPink else Color.LightGray))
+                    .background(if (step >= 2) PrimaryPink else Color.LightGray)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = if (step == 1) "Paso 1: Cuenta" else "Paso 2: Perfil",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Dimensions.SpacerMedium)
-            ) {
-                if (errorMessage != null) {
-                    item {
-                        Text(text = errorMessage!!, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                        slideOutHorizontally { width -> -width } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                        slideOutHorizontally { width -> width } + fadeOut()
                     }
-                }
-
-                if (step == 1) {
-                    // --- PASO 1: CUENTA ---
-                    item {
-                        CustomTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            label = "Correo Electrónico *",
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next,
-                            isError = !isEmailValid && email.isNotEmpty(),
-                            supportingText = if (!isEmailValid && email.isNotEmpty()) "Formato inválido" else null
-                        )
-                    }
-
-                    item {
-                        CustomTextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            label = "Contraseña *",
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            imeAction = ImeAction.Next,
-                            isError = !isPasswordValid && password.isNotEmpty(),
-                            supportingText = "Mínimo 6 caracteres", // Texto de ayuda visible
-                            trailingIcon = {
-                                val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
-                                }
-                            }
-                        )
-                    }
-
-                    item {
-                        CustomTextField(
-                            value = confirmPassword,
-                            onValueChange = { confirmPassword = it },
-                            label = "Confirmar Contraseña *",
-                            visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            imeAction = ImeAction.Done,
-                            isError = !passwordsMatch && confirmPassword.isNotEmpty(),
-                            supportingText = if (!passwordsMatch && confirmPassword.isNotEmpty()) "Las contraseñas no coinciden" else null,
-                            trailingIcon = {
-                                val image = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                                IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                                    Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
-                                }
-                            }
-                        )
-                    }
-                } else {
-                    // --- PASO 2: PERFIL ---
-                    item {
-                        Spacer(modifier = Modifier.height(Dimensions.SpacerSmall))
-                        // Avatar Section
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryPink.copy(alpha = 0.1f))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(),
-                                    onClick = { showAvatarSheet = true }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = selectedAvatar,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(60.dp),
-                                tint = PrimaryPink
+                },
+                modifier = Modifier.weight(1f)
+            ) { currentStep ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Dimensions.SpacerMedium)
+                ) {
+                    if (errorMessage != null) {
+                        item {
+                            Text(
+                                text = errorMessage!!, 
+                                color = Color.Red, 
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(32.dp)
-                                    .background(PrimaryPink, CircleShape)
-                                    .padding(2.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White), // Borde blanco
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(24.dp).background(PrimaryPink, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                }
-                            }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Elige tu avatar", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium), color = TextPrimary) // Texto mejorado
-                        Spacer(modifier = Modifier.height(24.dp)) // Espaciado aumentado
                     }
 
-                    item {
-                        CustomTextField(
-                            value = firstName,
-                            onValueChange = { firstName = it },
-                            label = "Nombre *",
-                            imeAction = ImeAction.Next
-                        )
-                    }
+                    if (currentStep == 1) {
+                        // --- PASO 1: CUENTA ---
+                        item {
+                            CustomTextField(
+                                value = email,
+                                onValueChange = { email = it },
+                                label = "Correo Electrónico *",
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next,
+                                isError = !isEmailValid && email.isNotEmpty(),
+                                supportingText = if (!isEmailValid && email.isNotEmpty()) "Ingresa un correo electrónico válido" else null
+                            )
+                        }
 
-                    item {
-                        CustomTextField(
-                            value = lastName,
-                            onValueChange = { lastName = it },
-                            label = "Apellido(s) *",
-                            imeAction = ImeAction.Next
-                        )
-                    }
-
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Date Picker Field
-                            Box(modifier = Modifier.weight(0.5f)) {
-                                CustomTextField(
-                                    value = birthDateDisplay,
-                                    onValueChange = {},
-                                    label = "F. Nacimiento *",
-                                    trailingIcon = {
-                                        Icon(Icons.Default.DateRange, contentDescription = null, tint = PrimaryPink)
+                        item {
+                            CustomTextField(
+                                value = password,
+                                onValueChange = { password = it },
+                                label = "Contraseña *",
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                imeAction = ImeAction.Next,
+                                isError = !isPasswordValid && password.isNotEmpty(),
+                                supportingText = "Mínimo 8 caracteres", 
+                                trailingIcon = {
+                                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
                                     }
-                                )
+                                }
+                            )
+                        }
+
+                        item {
+                            CustomTextField(
+                                value = confirmPassword,
+                                onValueChange = { confirmPassword = it },
+                                label = "Confirmar Contraseña *",
+                                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                imeAction = ImeAction.Done,
+                                isError = !passwordsMatch && confirmPassword.isNotEmpty(),
+                                supportingText = if (!passwordsMatch && confirmPassword.isNotEmpty()) "Las contraseñas no coinciden" else null,
+                                trailingIcon = {
+                                    val image = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                        Icon(imageVector = image, contentDescription = null, tint = TextSecondary)
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        // --- PASO 2: PERFIL ---
+                        item {
+                            Spacer(modifier = Modifier.height(Dimensions.SpacerSmall))
+                            // Avatar Section
+                            Box(
+                                modifier = Modifier.size(100.dp) // Contenedor principal sin clip
+                            ) {
+                                // Avatar con fondo circular y clip
                                 Box(
                                     modifier = Modifier
-                                        .matchParentSize()
-                                        .clickable { showDatePicker = true }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Fixed Layout for Sex and dummy place (wait, previous code had duplications)
-                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Reusing the sex selection logic
-                            Box(modifier = Modifier.weight(1f)) {
-                                ExposedDropdownMenuBox(
-                                    expanded = expandedSex,
-                                    onExpandedChange = { expandedSex = !expandedSex }
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(PrimaryPink.copy(alpha = 0.1f))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(),
+                                            onClick = { showAvatarSheet = true }
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    CustomTextField(
-                                        value = sex,
-                                        onValueChange = {},
-                                        label = "Género *",
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedSex) },
-                                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                                    Icon(
+                                        imageVector = selectedAvatarIcon,
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.size(60.dp),
+                                        tint = PrimaryPink
                                     )
-                                    ExposedDropdownMenu(
+                                }
+
+                                // Botón de edición flotante (fuera del clip del avatar)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(32.dp)
+                                        .border(2.dp, Color.White, CircleShape)
+                                        .background(PrimaryPink, CircleShape)
+                                        .clip(CircleShape)
+                                        .clickable { showAvatarSheet = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Toca para elegir un avatar", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+
+                        item {
+                            CustomTextField(
+                                value = firstName,
+                                onValueChange = { firstName = it },
+                                label = "Nombre *",
+                                imeAction = ImeAction.Next
+                            )
+                        }
+
+                        item {
+                            CustomTextField(
+                                value = lastName,
+                                onValueChange = { lastName = it },
+                                label = "Apellido(s) *",
+                                imeAction = ImeAction.Next
+                            )
+                        }
+
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Date Picker Field
+                                Box(modifier = Modifier.weight(0.5f)) {
+                                    CustomTextField(
+                                        value = birthDateDisplay,
+                                        onValueChange = {},
+                                        label = "F. Nacimiento *",
+                                        trailingIcon = {
+                                            Icon(Icons.Default.DateRange, contentDescription = null, tint = PrimaryPink)
+                                        }
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .clickable { showDatePicker = true }
+                                    )
+                                }
+                                
+                                // Gender Dropdown
+                                Box(modifier = Modifier.weight(0.5f)) {
+                                    ExposedDropdownMenuBox(
                                         expanded = expandedSex,
-                                        onDismissRequest = { expandedSex = false }
+                                        onExpandedChange = { expandedSex = !expandedSex }
                                     ) {
-                                        sexOptions.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(option) },
-                                                onClick = { sex = option; expandedSex = false }
-                                            )
+                                        CustomTextField(
+                                            value = sex,
+                                            onValueChange = {},
+                                            label = "Género *",
+                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedSex) },
+                                            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                                        )
+                                        ExposedDropdownMenu(
+                                            expanded = expandedSex,
+                                            onDismissRequest = { expandedSex = false }
+                                        ) {
+                                            sexOptions.forEach { option ->
+                                                DropdownMenuItem(
+                                                    text = { Text(option) },
+                                                    onClick = { sex = option; expandedSex = false }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -361,12 +436,32 @@ fun ProfileRegistrationScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Dimensions.SpacerMedium))
+            // Mover botones fuera del AnimatedContent para mantenerlos fijos pero contextuales
+            Spacer(modifier = Modifier.height(Dimensions.SpacerSmall))
+
+            val isButtonEnabled = (if (step == 1) isStep1Valid else isStep2Valid) && !isLoading
 
             Button(
                 onClick = {
                     if (step == 1) {
-                        step = 2
+                        // Validar si el correo ya existe antes de pasar al paso 2
+                        isLoading = true
+                        errorMessage = null
+                        FirebaseAuth.getInstance().fetchSignInMethodsForEmail(email)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    val methods = task.result?.signInMethods
+                                    if (!methods.isNullOrEmpty()) {
+                                        errorMessage = "Este correo ya está registrado. Intenta iniciar sesión."
+                                    } else {
+                                        step = 2
+                                    }
+                                } else {
+                                    // Si hay error de red u otro, mostramos mensaje traducido
+                                    errorMessage = getFirebaseErrorMessage(task.exception)
+                                }
+                            }
                     } else {
                         // Create Account Logic
                         isLoading = true
@@ -375,54 +470,67 @@ fun ProfileRegistrationScreen(
                         auth.createUserWithEmailAndPassword(email, password)
                             .addOnSuccessListener { authResult ->
                                 val user = authResult.user
-                                user?.sendEmailVerification()
-                                    ?.addOnSuccessListener {
-                                        val userData = hashMapOf(
-                                            "uid" to user.uid,
-                                            "firstName" to firstName,
-                                            "lastName" to lastName,
-                                            "age" to age,
-                                            "sex" to sex,
-                                            "email" to email,
-                                            "role" to "client",
-                                            "cancellationCount" to 0
-                                        )
-                                        FirebaseFirestore.getInstance().collection("clientes")
-                                            .document(user.uid)
-                                            .set(userData)
+                                if (user != null) {
+                                    // Actualizar displayName en Firebase Auth
+                                    val profileUpdates = UserProfileChangeRequest.Builder()
+                                        .setDisplayName("$firstName $lastName")
+                                        .build()
+                                    
+                                    user.updateProfile(profileUpdates).addOnCompleteListener { 
+                                        // Continuar con verificación de email y guardado en Firestore independientemente del resultado de updateProfile
+                                        user.sendEmailVerification()
                                             .addOnSuccessListener {
-                                                isLoading = false
-                                                onSaveSuccess()
+                                                val userData = hashMapOf(
+                                                    "uid" to user.uid,
+                                                    "firstName" to firstName,
+                                                    "lastName" to lastName,
+                                                    "age" to age,
+                                                    "sex" to sex,
+                                                    "email" to email,
+                                                    "avatar" to selectedAvatarKey, // Guardamos la clave del avatar
+                                                    "role" to "client",
+                                                    "cancellationCount" to 0
+                                                )
+                                                FirebaseFirestore.getInstance().collection("clientes")
+                                                    .document(user.uid)
+                                                    .set(userData)
+                                                    .addOnSuccessListener {
+                                                        isLoading = false
+                                                        onSaveSuccess(email)
+                                                    }
+                                                    .addOnFailureListener { e ->
+                                                        isLoading = false
+                                                        errorMessage = "Error guardando datos: ${getFirebaseErrorMessage(e)}"
+                                                    }
                                             }
                                             .addOnFailureListener { e ->
                                                 isLoading = false
-                                                errorMessage = "Error guardando datos: ${e.localizedMessage}"
+                                                errorMessage = "Error enviando verificación: ${getFirebaseErrorMessage(e)}"
                                             }
                                     }
-                                    ?.addOnFailureListener { e ->
-                                        isLoading = false
-                                        errorMessage = "Error enviando verificación: ${e.localizedMessage}"
-                                    }
+                                }
                             }
                             .addOnFailureListener { e ->
                                 isLoading = false
-                                errorMessage = "Error en registro: ${e.localizedMessage}"
+                                errorMessage = getFirebaseErrorMessage(e)
                             }
                     }
                 },
-                enabled = (if (step == 1) isStep1Valid else isStep2Valid) && !isLoading,
+                enabled = isButtonEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp), // Altura más estándar
+                    .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PrimaryPink,
-                    disabledContainerColor = Color(0xFFFFD1DC), // Rosa muy claro
-                    disabledContentColor = Color.Gray // Texto gris
+                    disabledContainerColor = Color(0xFFFFD1DC),
+                    disabledContentColor = Color.Gray
                 )
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Creando perfil...", style = MaterialTheme.typography.titleMedium)
                 } else {
                     Text(
                         if (step == 1) "Siguiente" else "Crear Perfil", 
@@ -430,6 +538,10 @@ fun ProfileRegistrationScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
+            }
+            if (!isButtonEnabled && step == 2 && !isLoading && (firstName.isBlank() || lastName.isBlank() || age.isBlank() || sex.isBlank())) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Completa todos los campos obligatorios", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
             Spacer(modifier = Modifier.height(Dimensions.SpacerExtraLarge))
         }
@@ -453,29 +565,21 @@ fun ProfileRegistrationScreen(
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                val avatars = listOf(
-                    Icons.Default.Person, Icons.Default.Face, Icons.Default.Mood, Icons.Default.AccountCircle,
-                    Icons.Default.EmojiPeople, Icons.Default.SportsGymnastics, Icons.Default.AccessibilityNew, Icons.Default.SelfImprovement
-                )
-                
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(avatars) { icon ->
-                        val isSelected = selectedAvatar == icon
+                    items(predefinedAvatars) { (key, icon) ->
+                        val isSelected = selectedAvatarKey == key
                         Box(
                             modifier = Modifier
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
                                 .background(if (isSelected) PrimaryPink.copy(alpha = 0.1f) else Color.Transparent)
                                 .clickable { 
-                                    selectedAvatar = icon
-                                    // Optional: close on selection or keep open? User didn't specify, but "Listo" button suggested.
-                                    // Let's keep open and add "Listo" button or just select.
-                                    // User said "Al tocar... avatar seleccionado... boton opcional: Listo"
+                                    selectedAvatarKey = key
                                 }
                                 .then(if (isSelected) Modifier.padding(4.dp) else Modifier), // Margin for border effect
                             contentAlignment = Alignment.Center
@@ -550,3 +654,20 @@ fun textFieldColors() = TextFieldDefaults.colors(
     errorContainerColor = Color.White
 )
 
+// Helper para traducir errores de Firebase
+private fun getFirebaseErrorMessage(e: Exception?): String {
+    val message = e?.localizedMessage?.lowercase() ?: ""
+    return when {
+        e is FirebaseAuthUserCollisionException || message.contains("email already in use") ->
+            "Este correo ya está registrado. Intenta iniciar sesión."
+        e is FirebaseAuthInvalidCredentialsException || message.contains("invalid") ->
+            "El formato del correo es incorrecto."
+        e is FirebaseAuthWeakPasswordException || message.contains("weak password") ->
+            "La contraseña debe tener al menos 6 caracteres."
+        message.contains("network") || message.contains("connection") || message.contains("host") ->
+            "No hay conexión a internet. Verifica tu red."
+        message.contains("too many requests") ->
+            "Demasiados intentos. Por favor espera unos minutos."
+        else -> "Ha ocurrido un error. Intenta nuevamente."
+    }
+}

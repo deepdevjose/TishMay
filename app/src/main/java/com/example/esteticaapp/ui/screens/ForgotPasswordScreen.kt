@@ -38,6 +38,7 @@ import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
 import com.example.esteticaapp.ui.theme.TitleGrey
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,14 +109,9 @@ fun ForgotPasswordScreen(
                     sentEmailAddress = email
                     isEmailSent = true
                 } else {
-                    // Manejo de errores común en Firebase
-                    val error = task.exception?.localizedMessage ?: "Error desconocido"
+                    // Manejo de errores traducido
                     emailError = true
-                    emailErrorMessage = if (error.contains("badly formatted")) {
-                        "Ingresa un correo electrónico válido."
-                    } else {
-                        "No pudimos enviar el correo. Verifica tu conexión."
-                    }
+                    emailErrorMessage = getFirebaseErrorMessage(task.exception)
                 }
             }
     }
@@ -430,5 +426,21 @@ fun ForgotPasswordScreen(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+// Helper para traducir errores de Firebase logicamente
+private fun getFirebaseErrorMessage(e: Exception?): String {
+    val message = e?.localizedMessage?.lowercase() ?: ""
+    return when {
+        e is FirebaseAuthInvalidUserException || message.contains("no user record") ->
+            "No existe una cuenta con este correo."
+        message.contains("badly formatted") || message.contains("invalid email") ->
+            "Ingresa un correo electrónico válido."
+        message.contains("network") || message.contains("connection") || message.contains("host") ->
+            "No hay conexión a internet. Verifica tu red."
+        message.contains("too many requests") ->
+            "Demasiados intentos. Intenta más tarde."
+        else -> "Error al enviar el correo. Intenta nuevamente."
     }
 }

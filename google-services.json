@@ -2,6 +2,7 @@
   "project_info": {
     "project_number": "797437624053",
     "project_id": "estetica-e0333",
+    "firebase_url": "https://estetica-e0333-default-rtdb.firebaseio.com",
     "storage_bucket": "estetica-e0333.firebasestorage.app"
   },
   "client": [
