@@ -25,7 +25,7 @@
     - **Firebase Auth:** Autenticación segura y gestión de perfiles.
     - **Firestore:** Base de datos NoSQL para citas, configuración y usuarios.
     - **Realtime Database:** Sincronización de notificaciones administrativas.
-    - **Vertex AI (Gemini 2.0):** Motor de inferencia para diagnósticos y resúmenes.
+    - **Vertex AI (Gemini 2.5 flash):** Motor de inferencia para diagnósticos y resúmenes.
 - **IA/ML:** Google ML Kit Face Detection.
 - **Imágenes:** Cloudinary (Storage & Optimization).
 - **Efectos:** Konfetti para celebraciones de feedback.
