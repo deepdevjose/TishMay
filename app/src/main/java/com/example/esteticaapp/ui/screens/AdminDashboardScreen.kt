@@ -36,13 +36,35 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Colores semánticos
+/**
+ * Colores semánticos utilizados para representar los diferentes estados de las citas.
+ * Siguen una convención de semáforo/estado estándar para facilitar la identificación visual rápida.
+ */
 val StatusPendingColor = Color(0xFFFFC107) // Amber
 val StatusAcceptedColor = Color(0xFF4CAF50) // Green
 val StatusRejectedColor = Color(0xFFEF5350) // Red
 val StatusCompletedColor = Color(0xFF2196F3) // Blue
 val StatusNoShowColor = Color(0xFFFF9800) // Orange
 
+/**
+ * Pantalla principal del panel de administración.
+ *
+ * Muestra un resumen de las citas del día, métricas clave y una lista filtrable de citas.
+ * Se conecta a Firestore para obtener citas en tiempo real y a Realtime Database para notificaciones.
+ *
+ * Funcionalidades principales:
+ * - Visualización de métricas (Total, Pendientes, Aceptadas, Rechazadas/Canceladas).
+ * - Filtrado de citas por estado (Todas, Pendiente, Confirmada, Completada).
+ * - Manejo de estados de citas (Aceptar, Rechazar, Completar, Marcar como No Asistió).
+ * - Notificaciones en tiempo real para nuevas solicitudes (mostradas si son recientes).
+ *
+ * Reglas de visualización:
+ * - Muestra actualizaciones en tiempo real mediantes SnapshotListener.
+ * - Incluye pull-to-refresh para recarga manual (aunque el listener es vivo).
+ *
+ * @param onLogout Callback para cerrar la sesión del administrador.
+ * @param onBackToWelcome Callback para navegar de regreso a la pantalla de bienvenida.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(onLogout: () -> Unit, onBackToWelcome: () -> Unit) {
@@ -88,7 +110,7 @@ fun AdminDashboardScreen(onLogout: () -> Unit, onBackToWelcome: () -> Unit) {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 // Solo procesamos el último hijo para no saturar al inicio
-                // En un caso real mas robusto, deberíamos marcar como 'leido'
+                // En un caso real más robusto, deberíamos marcar como 'leído'
                 // Aquí solo reaccionamos al cambio si es reciente
                 val lastNotif = snapshot.children.lastOrNull()
                 if (lastNotif != null) {
@@ -325,6 +347,24 @@ fun AdminDashboardScreen(onLogout: () -> Unit, onBackToWelcome: () -> Unit) {
     }
 }
 
+/**
+ * Tarjeta que representa una cita individual en la lista del panel de administración.
+ *
+ * Muestra detalles relevantes como hora, cliente, servicio y estado actual.
+ * Provee botones de acción contextuales dependiendo del estado de la cita.
+ *
+ * Reglas de negocio para acciones:
+ * - **Pendiente**: Permite "Aceptar" (cambia a Confirmada) o "Rechazar" (cambia a Rechazada).
+ * - **Confirmada**: Permite marcar como "No Asistió" o "Completar".
+ * - **Completar**: Además de cambiar el estado, incrementa el contador `completedAppointmentsCount` en el perfil del cliente.
+ * - **Otros estados**: No permite acciones adicionales, muestra texto informativo.
+ *
+ * Visualiza también la calificación del cliente si existe (estrellas y comentario).
+ *
+ * @param appointment Objeto de datos de la cita con toda la información necesaria.
+ * @param onAction Callback para ejecutar una acción confirmada. Recibe la función a ejecutar y el mensaje de confirmación.
+ * @param db Instancia de Firestore para realizar actualizaciones directas.
+ */
 @Composable
 fun AdminAppointmentCard(
     appointment: Appointment,
@@ -422,12 +462,12 @@ fun AdminAppointmentCard(
             ) {
                 if (appointment.status == "Pendiente") {
                     OutlinedButton(
-                        onClick = { 
+                        onClick = {
                             onAction({
                                 db.collection("citas").document(appointment.id).update("status", "Rechazada")
                                     .addOnSuccessListener { Toast.makeText(context, "Cita rechazada", Toast.LENGTH_SHORT).show() }
                                     .addOnFailureListener { e -> Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show() }
-                            }, "¿Estás seguro de rechazar esta cita?") 
+                            }, "¿Estás seguro de rechazar esta cita?")
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusRejectedColor),
                         border = BorderStroke(1.dp, StatusRejectedColor),
@@ -437,16 +477,16 @@ fun AdminAppointmentCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Rechazar")
                     }
-                    
+
                     Spacer(modifier = Modifier.width(12.dp))
-                    
+
                     Button(
-                        onClick = { 
+                        onClick = {
                             onAction({
                                 db.collection("citas").document(appointment.id).update("status", "Confirmada")
                                     .addOnSuccessListener { Toast.makeText(context, "Cita aceptada", Toast.LENGTH_SHORT).show() }
                                     .addOnFailureListener { e -> Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show() }
-                            }, "¿Aceptar cita de ${appointment.clientName} a las ${appointment.time}?") 
+                            }, "¿Aceptar cita de ${appointment.clientName} a las ${appointment.time}?")
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = StatusAcceptedColor),
                         modifier = Modifier.weight(1f)
@@ -493,8 +533,8 @@ fun AdminAppointmentCard(
                     }
                 } else {
                     Text(
-                        text = "Acciones cerradas", 
-                        style = MaterialTheme.typography.bodySmall, 
+                        text = "Acciones cerradas",
+                        style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
                         modifier = Modifier.padding(start = 8.dp)
                     )
@@ -542,6 +582,17 @@ fun Color.darken(factor: Float): Color {
     )
 }
 
+/**
+ * Componente visual para mostrar una métrica individual en el dashboard.
+ *
+ * Presenta un icono, un valor numérico destacado y un título descriptivo en una tarjeta elevada.
+ *
+ * @param title Título de la métrica (ej. "Total hoy").
+ * @param value Valor numérico o textual a mostrar.
+ * @param icon Icono representativo (ImageVector).
+ * @param color Color temático para el icono.
+ * @param modifier Modificador para aplicar estilos o layout al contenedor.
+ */
 @Composable
 fun StatCard(
     title: String,
@@ -552,18 +603,30 @@ fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.Start
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(text = title, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
         }
     }
 }
