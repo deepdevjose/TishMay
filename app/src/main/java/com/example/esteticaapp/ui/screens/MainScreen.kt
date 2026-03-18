@@ -88,7 +88,19 @@ fun MainScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Agenda.route) { AgendaScreen() }
-            composable(Screen.Galeria.route) { GaleriaScreen() }
+            composable(Screen.Galeria.route) { 
+                GaleriaScreen(
+                    onNavigateToBooking = {
+                        navController.navigate(Screen.Agenda.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                ) 
+            }
             composable(Screen.CameraIA.route) { 
                 CameraIAScreen(onLockNavigation = { isNavigationLocked = it }) 
             }

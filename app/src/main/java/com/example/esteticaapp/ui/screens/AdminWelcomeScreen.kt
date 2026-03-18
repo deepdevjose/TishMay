@@ -1,5 +1,10 @@
 package com.example.esteticaapp.ui.screens
 
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -28,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,9 +51,26 @@ import java.util.*
 fun AdminWelcomeScreen(onNavigateToDashboard: () -> Unit, onNavigateToGallery: () -> Unit, onLogout: () -> Unit) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
+    val context = LocalContext.current
     
     val adminName = auth.currentUser?.displayName?.split(" ")?.firstOrNull() ?: "Administrador"
     
+    // Lanzador para solicitar permisos de notificación en Android 13+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            Toast.makeText(context, "Las notificaciones están desactivadas. No recibirás avisos de nuevas citas.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Solicitar permiso al iniciar si es necesario
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val displayDate = remember {
         val sdf = SimpleDateFormat("EEEE d 'de' MMMM", Locale.forLanguageTag("es-ES"))
         sdf.format(Date()).replaceFirstChar { it.uppercase() }

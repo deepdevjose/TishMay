@@ -457,6 +457,7 @@ fun AppointmentForm(
     var userDailyCount by remember { mutableIntStateOf(0) }
     var userMonthlyCount by remember { mutableIntStateOf(0) }
     var maxCapacity by remember { mutableIntStateOf(2) }
+    var isSaving by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val services = listOf("Microblading", "Lash Lifting", "Diseño de Cejas", "Extensión de Pestañas")
@@ -534,8 +535,6 @@ fun AppointmentForm(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        // El DatePickerState devuelve la fecha en UTC (medianoche).
-                        // Para evitar el desfase por zona horaria al formatear, usamos UTC explícitamente.
                         val utcFormat = SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()).apply {
                             timeZone = TimeZone.getTimeZone("UTC")
                         }
@@ -610,7 +609,7 @@ fun AppointmentForm(
         OutlinedCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showDatePicker = true },
+                .clickable { if (!isSaving) showDatePicker = true },
             shape = RoundedCornerShape(12.dp),
             border = borderStrokePink(),
             colors = CardDefaults.outlinedCardColors(containerColor = Color.White)
@@ -651,7 +650,7 @@ fun AppointmentForm(
                         isPastTime = isPastTime(t, selectedDate, sdf),
                         alreadyBookedByMe = (userHourCounts[t] ?: 0) >= 1,
                         dailyLimitReached = userDailyCount >= 2,
-                        isReadOnly = isReadOnly,
+                        isReadOnly = isReadOnly || isSaving,
                         onSelect = { selectedTime = it }
                     )
                 }
@@ -704,9 +703,14 @@ fun AppointmentForm(
                 }
             } else {
                 Button(
-                    onClick = { if (selectedTime.isNotEmpty()) onConfirm(Appointment(service = selectedService, date = selectedDate, time = selectedTime)) }, 
+                    onClick = { 
+                        if (selectedTime.isNotEmpty() && !isSaving) {
+                            isSaving = true
+                            onConfirm(Appointment(service = selectedService, date = selectedDate, time = selectedTime)) 
+                        }
+                    }, 
                     modifier = Modifier.fillMaxWidth().height(52.dp), 
-                    enabled = true,
+                    enabled = selectedTime.isNotEmpty() && !isSaving,
                     shape = RoundedCornerShape(12.dp),
                     colors = if (selectedTime.isEmpty()) {
                         ButtonDefaults.buttonColors(containerColor = Color.LightGray.copy(alpha = 0.3f), contentColor = Color.Gray)
@@ -714,17 +718,22 @@ fun AppointmentForm(
                         ButtonDefaults.buttonColors(containerColor = PrimaryPink, contentColor = Color.White)
                     }
                 ) { 
-                    Text(
-                        if (selectedTime.isEmpty()) "Selecciona horario para continuar" else "Agendar Cita",
-                        fontWeight = FontWeight.Bold
-                    ) 
+                    if (isSaving) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            if (selectedTime.isEmpty()) "Selecciona horario para continuar" else "Agendar Cita",
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    }
                 }
             }
         }
         
         TextButton(
             onClick = onCancel, 
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isSaving
         ) { 
             Text(if (isReadOnly) "Cerrar" else "Cancelar", color = Color.Gray, fontWeight = FontWeight.Medium) 
         }

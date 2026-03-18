@@ -266,7 +266,7 @@ private fun ServiceShowcaseCard(
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Reservar este servicio", fontWeight = FontWeight.Bold)
+                    Text("Agendar Cita", fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(16.dp))
                 }
@@ -336,7 +336,10 @@ private fun FullscreenGalleryViewer(
                 Text(currentItem.description, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(24.dp))
                 Button(
-                    onClick = onBook,
+                    onClick = {
+                        onClose()
+                        onBook()
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink)
                 ) {

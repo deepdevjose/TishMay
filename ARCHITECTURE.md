@@ -1,48 +1,46 @@
-# Arquitectura Técnica - EstéticaApp
+# Arquitectura Técnica Detallada - EstéticaApp
 
-Este documento proporciona una visión profunda de la estructura y decisiones técnicas de **EstéticaApp**, diseñada para ser escalable, reactiva y orientada al usuario.
+Este documento describe la infraestructura, patrones de diseño y flujos de datos de **EstéticaApp**, diseñada para ser una plataforma robusta, segura y altamente reactiva.
 
 ## 🏗️ Patrón de Arquitectura: MVVM Progresivo
 
-La aplicación implementa el patrón **Model-View-ViewModel**, aprovechando al máximo la reactividad de **Jetpack Compose** y los flujos de Firebase.
+La aplicación implementa el patrón **Model-View-ViewModel (MVVM)**, aprovechando la reactividad de **Jetpack Compose** y los flujos en tiempo real de Firebase.
 
-### 1. Capa de Interfaz (UI)
-- **Declarativa:** Construida al 100% con Jetpack Compose.
-- **Navegación:** Gestión centralizada mediante `NavHost`.
-- **Tematización:** Sistema de diseño personalizado en `ui.theme` que define una paleta cromática sofisticada (PrimaryPink, SoftRose) y dimensiones consistentes.
+### 1. Capa de Presentación (UI)
+- **Compose-First:** Interfaz 100% declarativa. No se utilizan archivos XML para layouts.
+- **Navegación Basada en Estado:** El flujo de pantallas en `MainActivity.kt` se determina dinámicamente según el estado de autenticación y el rol (Admin vs. Cliente).
+- **Gestión de Retroceso (Back Handling):** Uso de `androidx.activity.compose.BackHandler` para interceptar gestos del sistema y evitar cierres accidentales en flujos críticos.
 
 ### 2. Capa de Lógica (ViewModel)
-- **Gestión de Estado:** Uso de `MutableStateFlow` y delegados `remember` en Compose para asegurar una UI fluida.
-- **Reactividad Backend:** Los ViewModels (y las pantallas principales) utilizan `addSnapshotListener` de Firestore para reaccionar a cambios en la base de datos sin necesidad de recarga manual.
+- **Gestión de Estado:** Uso de `StateFlow` para emitir estados inmutables.
+- **Structured Concurrency:** Todas las operaciones asíncronas están ligadas al ciclo de vida del componente mediante `viewModelScope` o `LaunchedEffect`.
 
-### 3. Capa de Datos e Infraestructura
-- **Firebase Ecosystem:**
-    - **Firestore:** Almacenamiento jerárquico (`clientes`, `citas`, `config`, `administradores`).
-    - **Auth:** Proveedores de Email/Password y Google Sign-In.
-    - **Realtime Database (RTDB):** Utilizado exclusivamente para **señalización de baja latencia**, específicamente para notificaciones instantáneas al administrador.
-- **Vertex AI (Gemini 2.0 Flash):** Integración mediante el SDK de Firebase para tareas de visión y procesamiento de lenguaje natural (Resúmenes y Diagnósticos).
-- **ML Kit:** Detección de puntos de referencia faciales en tiempo real para validación biométrica local.
+## 🔐 Sistema de Identidad y Acceso
 
-## 🧠 Flujos de Inteligencia Artificial
+### Estrategias de Autenticación
+1.  **Google OAuth:** Implementado con `CredentialManager` para un flujo moderno y seguro.
+2.  **Email y Contraseña:** Sistema tradicional con verificación de correo obligatoria.
+3.  **Vinculación de Cuentas (Account Linking):** Los usuarios de Google pueden asignar una contraseña a su perfil mediante `linkWithCredential`, permitiendo el acceso híbrido bajo una identidad única.
 
-### Diagnóstico de Mirada (Clienta)
-1. **Captura:** `CameraX` obtiene frames de la cámara frontal.
-2. **Pre-procesamiento:** ML Kit valida la presencia de un rostro y extrae la región de interés (ojos).
-3. **Inferencia:** El frame se envía a Gemini 2.0 con un prompt especializado en visagismo.
-4. **Persistencia:** El resultado JSON se guarda en la subcolección `analysis_history` de la clienta.
+## ☁️ Infraestructura de Notificaciones (WhatsApp Style)
 
-### Resumen Inteligente (Administrador)
-1. **Agregación:** Se consultan todas las citas del día actual.
-2. **Contextualización:** Se recupera la configuración de `maxCapacityPerHour`.
-3. **Generación:** Gemini procesa las estadísticas (confirmadas, pendientes, capacidad) para generar un informe narrativo sobre el estado de la jornada.
+Para garantizar que las notificaciones lleguen incluso si la app está cerrada, se implementó una arquitectura basada en **Servicios en Primer Plano (Foreground Services)**:
 
-## 📡 Comunicación Admin-Clienta (Real-time)
-Cuando una clienta realiza una reserva exitosa:
-1. Se crea el documento en Firestore (`/citas`).
-2. Se realiza un `push` a RTDB (`/admin_notifications`).
-3. El `AdminDashboardScreen` tiene un listener activo en ese nodo de RTDB y dispara una notificación local mediante `NotificationHelper`.
+### 1. Canales de Escucha (RTDB)
+- **AdminNotificationService:** Escucha el nodo `/admin_notifications` para nuevas citas.
+- **ClientNotificationService:** Escucha el nodo `/client_notifications/{userId}` para confirmaciones.
+- **Motor:** Se utiliza `addChildEventListener` con `limitToLast(10)` para maximizar la eficiencia y reducir el consumo de datos y batería.
 
-## 📁 Componentes de Infraestructura Clave
-- `NotificationHelper.kt`: Encapsula la creación de canales y el envío de notificaciones de sistema.
-- `NetworkUtils.kt`: Monitoriza la conectividad para prevenir errores en operaciones críticas de Firebase.
-- `Firestore.rules`: Capa de seguridad que restringe el acceso basado en UID y roles de administrador.
+### 2. Política de Transparencia de Android
+Siguiendo las normativas de Android (API 31+), los servicios muestran una notificación persistente ("Servicio de Estética Activo"). Esto informa al usuario que la app está procesando datos en segundo plano para su beneficio, garantizando seguridad y confiabilidad.
+
+## 🧠 Inteligencia Artificial (Vertex AI + ML Kit)
+
+### Diagnóstico de Mirada
+1.  **Visión Local:** ML Kit valida la presencia de rostro y ojos antes de la inferencia.
+2.  **IA Generativa:** Gemini 2.5 Flash procesa el frame con un "System Prompt" especializado en visagismo.
+3.  **Resumen Ejecutivo:** Generación de reportes narrativos para el administrador basados en métricas de agenda y capacidad.
+
+## 🛡️ Resiliencia Offline
+- **NetworkUtils:** Monitoreo reactivo de la red.
+- **NoConnectionOverlay:** Bloqueo total de la UI mediante `pointerInput` y `zIndex` alto cuando se pierde la conexión, evitando estados inconsistentes en Firebase.

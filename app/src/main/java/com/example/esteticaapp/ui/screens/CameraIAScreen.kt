@@ -2,7 +2,10 @@ package com.example.esteticaapp.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -127,23 +130,52 @@ fun CameraIAScreen(onLockNavigation: (Boolean) -> Unit = {}) {
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     LaunchedEffect(Unit) {
-        cameraPermissionState.launchPermissionRequest()
+        if (!cameraPermissionState.status.isGranted) {
+            cameraPermissionState.launchPermissionRequest()
+        }
     }
 
     if (cameraPermissionState.status.isGranted) {
         CameraContent(context, onLockNavigation)
     } else {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Se necesita permiso de cámara para usar la IA", color = Color.Gray, textAlign = TextAlign.Center)
+                Text(
+                    text = "Se necesita acceso a la cámara para analizar tu rostro con IA.",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    fontSize = 16.sp
+                )
                 Spacer(modifier = Modifier.height(24.dp))
+                
                 Button(
-                    onClick = { cameraPermissionState.launchPermissionRequest() },
-                    colors = ButtonDefaults.buttonColors(containerColor = VibrantPink)
+                    onClick = { 
+                        cameraPermissionState.launchPermissionRequest()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = VibrantPink),
+                    modifier = Modifier.fillMaxWidth(0.8f)
                 ) {
                     Text("Conceder Permiso")
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                    modifier = Modifier.fillMaxWidth(0.8f)
+                ) {
+                    Text("Abrir Configuración")
                 }
             }
         }

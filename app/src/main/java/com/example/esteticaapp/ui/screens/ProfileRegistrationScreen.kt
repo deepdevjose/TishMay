@@ -38,6 +38,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.UserProfileChangeRequest
 import java.util.Calendar
@@ -58,9 +59,15 @@ val predefinedAvatars = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileRegistrationScreen(
+    initialEmail: String = "",
     onSaveSuccess: (String) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    val currentUser = auth.currentUser
+    // Verificamos si es un usuario que viene de Google
+    val isGoogleUser = currentUser != null
+
     var step by remember { mutableIntStateOf(1) } // 1: Cuenta, 2: Perfil
 
     BackHandler { 
@@ -80,7 +87,7 @@ fun ProfileRegistrationScreen(
     val selectedAvatarIcon = predefinedAvatars.find { it.first == selectedAvatarKey }?.second ?: Icons.Default.Person
 
     // Datos de la Cuenta
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf(currentUser?.email ?: initialEmail) }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     
@@ -93,6 +100,15 @@ fun ProfileRegistrationScreen(
     var showAvatarSheet by remember { mutableStateOf(false) }
     var expandedSex by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    // Pre-llenar datos si vienen de Google
+    LaunchedEffect(currentUser) {
+        if (currentUser != null && firstName.isEmpty() && lastName.isEmpty()) {
+            val nameParts = currentUser.displayName?.split(" ")
+            firstName = nameParts?.firstOrNull() ?: ""
+            lastName = nameParts?.drop(1)?.joinToString(" ") ?: ""
+        }
+    }
 
     val sexOptions = listOf("Femenino", "Masculino", "Prefiero no decirlo", "Otro")
     val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-z]{2,}$".toRegex()
@@ -140,15 +156,12 @@ fun ProfileRegistrationScreen(
                     datePickerState.selectedDateMillis?.let { millis ->
                         val calendar = Calendar.getInstance()
                         calendar.timeInMillis = millis
-                        // Ajustar zona horaria si es necesario o simplificar
-                        // Nota: DatePicker usa UTC
                         
                         val day = calendar.get(Calendar.DAY_OF_MONTH)
                         val month = calendar.get(Calendar.MONTH) + 1
                         val year = calendar.get(Calendar.YEAR)
-                        birthDateDisplay = "$day/$month/$year" // Formato local simple
+                        birthDateDisplay = "$day/$month/$year" 
                         
-                        // Calcular edad precisa
                         val current = Calendar.getInstance()
                         var calculatedAge = current.get(Calendar.YEAR) - year
                         if (current.get(Calendar.DAY_OF_YEAR) < calendar.get(Calendar.DAY_OF_YEAR)) {
@@ -164,11 +177,7 @@ fun ProfileRegistrationScreen(
         ) {
             DatePicker(
                 state = datePickerState,
-                title = { Text("Seleccionar fecha", modifier = Modifier.padding(start = 24.dp, top = 16.dp)) },
-                headline = { 
-                    // Formato corto manual si lo deseas, o dejar default
-                   // Text("Fecha de nacimiento", modifier = Modifier.padding(start = 24.dp))
-                }
+                title = { Text("Seleccionar fecha", modifier = Modifier.padding(start = 24.dp, top = 16.dp)) }
             )
         }
     }
@@ -205,7 +214,6 @@ fun ProfileRegistrationScreen(
                 .padding(horizontal = Dimensions.PaddingLarge),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Indicador de pasos simple
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,17 +221,14 @@ fun ProfileRegistrationScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Paso 1
                 Box(modifier = Modifier
                     .size(if (step == 1) 12.dp else 10.dp)
                     .clip(CircleShape)
                     .background(if (step >= 1) PrimaryPink else Color.LightGray)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                // Linea conector
                 Box(modifier = Modifier.width(20.dp).height(2.dp).background(if (step >= 2) PrimaryPink else Color.LightGray))
                 Spacer(modifier = Modifier.width(8.dp))
-                // Paso 2
                 Box(modifier = Modifier
                     .size(if (step == 2) 12.dp else 10.dp)
                     .clip(CircleShape)
@@ -248,7 +253,8 @@ fun ProfileRegistrationScreen(
                         slideOutHorizontally { width -> width } + fadeOut()
                     }
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                label = "stepAnimation"
             ) { currentStep ->
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -268,16 +274,21 @@ fun ProfileRegistrationScreen(
                     }
 
                     if (currentStep == 1) {
-                        // --- PASO 1: CUENTA ---
                         item {
                             CustomTextField(
                                 value = email,
-                                onValueChange = { email = it },
+                                onValueChange = { if (!isGoogleUser) email = it },
                                 label = "Correo Electrónico *",
+                                enabled = !isGoogleUser && !isLoading,
                                 keyboardType = KeyboardType.Email,
                                 imeAction = ImeAction.Next,
                                 isError = !isEmailValid && email.isNotEmpty(),
-                                supportingText = if (!isEmailValid && email.isNotEmpty()) "Ingresa un correo electrónico válido" else null
+                                supportingText = if (isGoogleUser) "Correo vinculado a Google" else if (!isEmailValid && email.isNotEmpty()) "Ingresa un correo electrónico válido" else null,
+                                trailingIcon = {
+                                    if (isGoogleUser) {
+                                        Icon(Icons.Default.Verified, contentDescription = "Verificado", tint = PrimaryPink)
+                                    }
+                                }
                             )
                         }
 
@@ -285,7 +296,7 @@ fun ProfileRegistrationScreen(
                             CustomTextField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = "Contraseña *",
+                                label = if (isGoogleUser) "Crea una contraseña para tu cuenta *" else "Contraseña *",
                                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 imeAction = ImeAction.Next,
                                 isError = !isPasswordValid && password.isNotEmpty(),
@@ -317,14 +328,9 @@ fun ProfileRegistrationScreen(
                             )
                         }
                     } else {
-                        // --- PASO 2: PERFIL ---
                         item {
                             Spacer(modifier = Modifier.height(Dimensions.SpacerSmall))
-                            // Avatar Section
-                            Box(
-                                modifier = Modifier.size(100.dp) // Contenedor principal sin clip
-                            ) {
-                                // Avatar con fondo circular y clip
+                            Box(modifier = Modifier.size(100.dp)) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -345,7 +351,6 @@ fun ProfileRegistrationScreen(
                                     )
                                 }
 
-                                // Botón de edición flotante (fuera del clip del avatar)
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
@@ -387,7 +392,6 @@ fun ProfileRegistrationScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Date Picker Field
                                 Box(modifier = Modifier.weight(0.5f)) {
                                     CustomTextField(
                                         value = birthDateDisplay,
@@ -404,7 +408,6 @@ fun ProfileRegistrationScreen(
                                     )
                                 }
                                 
-                                // Gender Dropdown
                                 Box(modifier = Modifier.weight(0.5f)) {
                                     ExposedDropdownMenuBox(
                                         expanded = expandedSex,
@@ -436,7 +439,6 @@ fun ProfileRegistrationScreen(
                 }
             }
 
-            // Mover botones fuera del AnimatedContent para mantenerlos fijos pero contextuales
             Spacer(modifier = Modifier.height(Dimensions.SpacerSmall))
 
             val isButtonEnabled = (if (step == 1) isStep1Valid else isStep2Valid) && !isLoading
@@ -444,76 +446,66 @@ fun ProfileRegistrationScreen(
             Button(
                 onClick = {
                     if (step == 1) {
-                        // Validar si el correo ya existe antes de pasar al paso 2
                         isLoading = true
                         errorMessage = null
-                        FirebaseAuth.getInstance().fetchSignInMethodsForEmail(email)
-                            .addOnCompleteListener { task ->
-                                isLoading = false
-                                if (task.isSuccessful) {
-                                    val methods = task.result?.signInMethods
-                                    if (!methods.isNullOrEmpty()) {
-                                        errorMessage = "Este correo ya está registrado. Intenta iniciar sesión."
-                                    } else {
+                        
+                        if (isGoogleUser && currentUser?.email?.lowercase() == email.lowercase().trim()) {
+                            // VINCULACIÓN: El usuario ya está autenticado con Google.
+                            // Le vinculamos el método de contraseña para que tenga ambas opciones.
+                            val credential = EmailAuthProvider.getCredential(email, password)
+                            currentUser.linkWithCredential(credential)
+                                .addOnCompleteListener { task ->
+                                    isLoading = false
+                                    // Si tiene éxito o ya estaba vinculado, avanzamos
+                                    if (task.isSuccessful || task.exception?.message?.contains("provider already linked") == true) {
                                         step = 2
+                                    } else {
+                                        errorMessage = "Error al vincular: ${getFirebaseErrorMessage(task.exception)}"
                                     }
-                                } else {
-                                    // Si hay error de red u otro, mostramos mensaje traducido
-                                    errorMessage = getFirebaseErrorMessage(task.exception)
                                 }
-                            }
+                        } else {
+                            // Flujo normal: Registro manual desde cero
+                            auth.fetchSignInMethodsForEmail(email)
+                                .addOnCompleteListener { task ->
+                                    isLoading = false
+                                    if (task.isSuccessful) {
+                                        val methods = task.result?.signInMethods
+                                        if (!methods.isNullOrEmpty()) {
+                                            if (methods.contains("google.com")) {
+                                                errorMessage = "Este correo ya está en uso con Google. Por favor, inicia sesión con Google primero."
+                                            } else {
+                                                errorMessage = "Este correo ya está registrado. Intenta iniciar sesión."
+                                            }
+                                        } else {
+                                            step = 2
+                                        }
+                                    } else {
+                                        errorMessage = getFirebaseErrorMessage(task.exception)
+                                    }
+                                }
+                        }
                     } else {
-                        // Create Account Logic
+                        // PASO 2: Guardado de perfil
                         isLoading = true
                         errorMessage = null
-                        val auth = FirebaseAuth.getInstance()
-                        auth.createUserWithEmailAndPassword(email, password)
-                            .addOnSuccessListener { authResult ->
-                                val user = authResult.user
-                                if (user != null) {
-                                    // Actualizar displayName en Firebase Auth
-                                    val profileUpdates = UserProfileChangeRequest.Builder()
-                                        .setDisplayName("$firstName $lastName")
-                                        .build()
-                                    
-                                    user.updateProfile(profileUpdates).addOnCompleteListener { 
-                                        // Continuar con verificación de email y guardado en Firestore independientemente del resultado de updateProfile
-                                        user.sendEmailVerification()
-                                            .addOnSuccessListener {
-                                                val userData = hashMapOf(
-                                                    "uid" to user.uid,
-                                                    "firstName" to firstName,
-                                                    "lastName" to lastName,
-                                                    "age" to age,
-                                                    "sex" to sex,
-                                                    "email" to email,
-                                                    "avatar" to selectedAvatarKey, // Guardamos la clave del avatar
-                                                    "role" to "client",
-                                                    "cancellationCount" to 0
-                                                )
-                                                FirebaseFirestore.getInstance().collection("clientes")
-                                                    .document(user.uid)
-                                                    .set(userData)
-                                                    .addOnSuccessListener {
-                                                        isLoading = false
-                                                        onSaveSuccess(email)
-                                                    }
-                                                    .addOnFailureListener { e ->
-                                                        isLoading = false
-                                                        errorMessage = "Error guardando datos: ${getFirebaseErrorMessage(e)}"
-                                                    }
-                                            }
-                                            .addOnFailureListener { e ->
-                                                isLoading = false
-                                                errorMessage = "Error enviando verificación: ${getFirebaseErrorMessage(e)}"
-                                            }
-                                    }
+                        val user = auth.currentUser
+                        if (user != null) {
+                            val profileUpdates = UserProfileChangeRequest.Builder()
+                                .setDisplayName("$firstName $lastName")
+                                .build()
+                            
+                            user.updateProfile(profileUpdates).addOnCompleteListener { 
+                                // Si no está verificado (es cuenta nueva de email), enviamos verificación
+                                if (!user.isEmailVerified) {
+                                    user.sendEmailVerification()
+                                }
+                                
+                                saveProfileToFirestore(user.uid, firstName, lastName, age, sex, email, selectedAvatarKey, onSaveSuccess) { error ->
+                                    isLoading = false
+                                    errorMessage = error
                                 }
                             }
-                            .addOnFailureListener { e ->
-                                isLoading = false
-                                errorMessage = getFirebaseErrorMessage(e)
-                            }
+                        }
                     }
                 },
                 enabled = isButtonEnabled,
@@ -530,7 +522,7 @@ fun ProfileRegistrationScreen(
                 if (isLoading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Creando perfil...", style = MaterialTheme.typography.titleMedium)
+                    Text("Procesando...", style = MaterialTheme.typography.titleMedium)
                 } else {
                     Text(
                         if (step == 1) "Siguiente" else "Crear Perfil", 
@@ -549,8 +541,7 @@ fun ProfileRegistrationScreen(
 
     if (showAvatarSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showAvatarSheet = false },
-            sheetState = rememberModalBottomSheetState()
+            onDismissRequest = { showAvatarSheet = false }
         ) {
             Column(
                 modifier = Modifier
@@ -578,10 +569,8 @@ fun ProfileRegistrationScreen(
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
                                 .background(if (isSelected) PrimaryPink.copy(alpha = 0.1f) else Color.Transparent)
-                                .clickable { 
-                                    selectedAvatarKey = key
-                                }
-                                .then(if (isSelected) Modifier.padding(4.dp) else Modifier), // Margin for border effect
+                                .clickable { selectedAvatarKey = key }
+                                .then(if (isSelected) Modifier.padding(4.dp) else Modifier),
                             contentAlignment = Alignment.Center
                         ) {
                              if (isSelected) {
@@ -617,6 +606,39 @@ fun ProfileRegistrationScreen(
     }
 }
 
+private fun saveProfileToFirestore(
+    uid: String,
+    firstName: String,
+    lastName: String,
+    age: String,
+    sex: String,
+    email: String,
+    avatar: String,
+    onSuccess: (String) -> Unit,
+    onError: (String) -> Unit
+) {
+    val userData = hashMapOf(
+        "uid" to uid,
+        "firstName" to firstName,
+        "lastName" to lastName,
+        "age" to age,
+        "sex" to sex,
+        "email" to email,
+        "avatar" to avatar,
+        "role" to "client",
+        "cancellationCount" to 0
+    )
+    FirebaseFirestore.getInstance().collection("clientes")
+        .document(uid)
+        .set(userData)
+        .addOnSuccessListener {
+            onSuccess(email)
+        }
+        .addOnFailureListener { e ->
+            onError("Error guardando datos: ${getFirebaseErrorMessage(e)}")
+        }
+}
+
 @Composable
 fun CustomTextField(
     value: String,
@@ -628,7 +650,8 @@ fun CustomTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     isError: Boolean = false,
     supportingText: String? = null,
-    trailingIcon: @Composable (() -> Unit)? = null
+    trailingIcon: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     TextField(
         value = value,
@@ -641,7 +664,8 @@ fun CustomTextField(
         isError = isError,
         supportingText = supportingText?.let { { Text(it) } },
         trailingIcon = trailingIcon,
-        colors = textFieldColors()
+        colors = textFieldColors(),
+        enabled = enabled
     )
 }
 
@@ -654,7 +678,6 @@ fun textFieldColors() = TextFieldDefaults.colors(
     errorContainerColor = Color.White
 )
 
-// Helper para traducir errores de Firebase
 private fun getFirebaseErrorMessage(e: Exception?): String {
     val message = e?.localizedMessage?.lowercase() ?: ""
     return when {

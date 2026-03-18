@@ -1,6 +1,7 @@
 package com.example.esteticaapp.ui.screens
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,7 +33,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.esteticaapp.ui.theme.BackgroundPink
-import com.example.esteticaapp.ui.theme.Dimensions
 import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
@@ -58,6 +58,12 @@ fun ForgotPasswordScreen(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    // MANEJO DEL BOTÓN ATRÁS DEL SISTEMA
+    // Esto asegura que el gesto de "atrás" de Android ejecute onBackToLogin
+    BackHandler {
+        onBackToLogin()
+    }
 
     // Feedback visual para reenvío
     fun showToast(message: String) {
@@ -146,15 +152,12 @@ fun ForgotPasswordScreen(
                 .padding(horizontal = 32.dp)
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
-            // Cambiar Arrangement.Center a Top para controlar mejor el espaciado superior
             verticalArrangement = Arrangement.Top
         ) {
             
             if (!isEmailSent) {
-                // Espaciado superior ajustado (aprox 10-15% de la pantalla, o un valor fijo razonable)
                 Spacer(modifier = Modifier.height(48.dp))
 
-                // 6. Icono mejorado
                 Box(
                     modifier = Modifier
                         .size(72.dp)
@@ -182,7 +185,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 2. Texto descriptivo mejorado
                 Text(
                     text = "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -193,12 +195,10 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // 4. Input con estados
                 OutlinedTextField(
                     value = email,
                     onValueChange = { 
                         email = it
-                        // 6. Validación en tiempo real (limpia error)
                         if (emailError) {
                             emailError = false
                             emailErrorMessage = null
@@ -207,7 +207,7 @@ fun ForgotPasswordScreen(
                     label = { 
                         Text(
                             text = "Correo Electrónico",
-                            style = MaterialTheme.typography.bodyMedium // Asegurar consistencia en tamaño
+                            style = MaterialTheme.typography.bodyMedium 
                         ) 
                     },
                     placeholder = { Text("ejemplo@email.com", color = Color.LightGray) },
@@ -219,9 +219,9 @@ fun ForgotPasswordScreen(
                         disabledContainerColor = Color(0xFFF0F0F0),
                         focusedBorderColor = PrimaryPink,
                         unfocusedBorderColor = Color(0xFFE7D7DA),
-                        errorBorderColor = Color(0xFFB00020), // Rojo con más contraste
+                        errorBorderColor = Color(0xFFB00020),
                         focusedLabelColor = PrimaryPink,
-                        errorLabelColor = Color(0xFFB00020), // Rojo con más contraste
+                        errorLabelColor = Color(0xFFB00020),
                         cursorColor = PrimaryPink
                     ),
                     singleLine = true,
@@ -238,11 +238,10 @@ fun ForgotPasswordScreen(
                     )
                 )
 
-                // Mensaje de error debajo del input
                 AnimatedVisibility(visible = emailError && emailErrorMessage != null) {
                     Text(
                         text = emailErrorMessage ?: "",
-                        color = Color(0xFFB00020), // Rojo con más contraste
+                        color = Color(0xFFB00020),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -261,18 +260,17 @@ fun ForgotPasswordScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PrimaryPink,
-                        disabledContainerColor = Color(0xFFE0E0E0), // Gris claro disabled
+                        disabledContainerColor = Color(0xFFE0E0E0),
                         contentColor = Color.White,
-                        disabledContentColor = Color(0xFF9E9E9E) // Texto gris oscuro disabled
+                        disabledContentColor = Color(0xFF9E9E9E)
                     ),
-                    enabled = isButtonEnabled // Desactivar si vacío o loading
+                    enabled = isButtonEnabled 
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Enviando...", style = MaterialTheme.typography.titleMedium)
                     } else {
-                        // 1. Texto del botón ajustado
                         Text(
                             text = "Enviar enlace",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -280,28 +278,24 @@ fun ForgotPasswordScreen(
                     }
                 }
             } else {
-                // Espaciado superior reducido para subir el contenido (Mejora 1)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Email Sent State
-                // Icono con más peso visual (Mejora 2)
                 Box(
                     modifier = Modifier
-                        .size(100.dp) // Aumentado de 80.dp -> 100.dp (aprox 20-25%)
+                        .size(100.dp)
                         .background(Color(0xFFE8F5E9), shape = CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.MarkEmailRead,
                         contentDescription = null,
-                        modifier = Modifier.size(50.dp), // Aumentado de 40.dp -> 50.dp
+                        modifier = Modifier.size(50.dp),
                         tint = Color(0xFF4CAF50)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Texto principal más informativo (Mejora 3)
                 Text(
                     text = "Enlace enviado",
                     style = MaterialTheme.typography.headlineSmall,
@@ -312,7 +306,6 @@ fun ForgotPasswordScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Card compacta (Mejora 4)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -320,7 +313,7 @@ fun ForgotPasswordScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp), // Padding interno reducido
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -330,9 +323,8 @@ fun ForgotPasswordScreen(
                             textAlign = TextAlign.Center
                         )
                         
-                        Spacer(modifier = Modifier.height(4.dp)) // Espacio reducido
+                        Spacer(modifier = Modifier.height(4.dp))
                         
-                        // Masked email
                         Text(
                             text = maskEmail(sentEmailAddress),
                             style = MaterialTheme.typography.titleMedium,
@@ -341,9 +333,8 @@ fun ForgotPasswordScreen(
                             textAlign = TextAlign.Center
                         )
                         
-                        Spacer(modifier = Modifier.height(8.dp)) // Espacio reducido
+                        Spacer(modifier = Modifier.height(8.dp))
                         
-                        // Microcopy mejorado (Mejora 7)
                         Text(
                             text = "Si no lo ves, revisa spam o correo no deseado.",
                             style = MaterialTheme.typography.bodySmall,
@@ -353,9 +344,8 @@ fun ForgotPasswordScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(40.dp)) // Separación aumentada para destacar CTA (Mejora 5)
+                Spacer(modifier = Modifier.height(40.dp))
 
-                // 5. Botón abrir correo (CTA Principal)
                 Button(
                     onClick = {
                         val intent = Intent(Intent.ACTION_MAIN).apply {
@@ -382,9 +372,6 @@ fun ForgotPasswordScreen(
                 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 6. Jerarquía de acciones
-                
-                // Acción Secundaria: Reenviar enlace
                 Text(
                     text = buildAnnotatedString {
                         append("¿No recibiste el correo? ")
@@ -413,7 +400,6 @@ fun ForgotPasswordScreen(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Acción Terciaria: Volver al inicio (más discreto)
                 TextButton(
                     onClick = onBackToLogin,
                     colors = ButtonDefaults.textButtonColors(contentColor = Color.Gray)
@@ -429,7 +415,6 @@ fun ForgotPasswordScreen(
     }
 }
 
-// Helper para traducir errores de Firebase logicamente
 private fun getFirebaseErrorMessage(e: Exception?): String {
     val message = e?.localizedMessage?.lowercase() ?: ""
     return when {
