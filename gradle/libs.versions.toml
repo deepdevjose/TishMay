@@ -15,7 +15,7 @@ firebaseBom = "34.10.0"
 camerax = "1.5.3"
 accompanist = "0.37.3"
 konfetti = "2.0.5"
-mlkitFaceDetection = "16.1.7"
+mlkitFaceDetection = "17.1.0"
 kotlinxCoroutinesPlayServices = "1.10.2"
 coil = "2.7.0"
 cloudinary = "3.1.2"
@@ -51,7 +51,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 konfetti-compose = { group = "nl.dionsegijn", name = "konfetti-compose", version.ref = "konfetti" }
-mlkit-face-detection = { group = "com.google.mlkit", name = "face-detection", version.ref = "mlkitFaceDetection" }
+mlkit-face-detection = { group = "com.google.android.gms", name = "play-services-mlkit-face-detection", version.ref = "mlkitFaceDetection" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 firebase-database = { module = "com.google.firebase:firebase-database" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }

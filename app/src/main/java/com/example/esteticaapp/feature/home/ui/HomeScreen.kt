@@ -1,3 +1,15 @@
+/**
+ * Pantalla de inicio (Home) de la aplicación TishMay.
+ * Proporciona una visión general para el usuario, incluyendo un saludo personalizado,
+ * acceso rápido al análisis de mirada por IA, agendamiento de citas y tips de belleza.
+ * 
+ * Tecnologías y conceptos clave:
+ * - Jetpack Compose: LazyColumn para un desplazamiento fluido y Scaffold para la estructura base.
+ * - Animaciones: Pulse y transiciones suaves para elementos destacados como el banner de IA.
+ * - ViewModel: Obtiene y expone el estado global del usuario (nombre, notificaciones).
+ * - Diseño Premium: Uso de gradientes, sombras suaves y jerarquía tipográfica para una estética de alta gama.
+ */
+
 package com.example.esteticaapp.feature.home.ui
 
 import androidx.compose.animation.*

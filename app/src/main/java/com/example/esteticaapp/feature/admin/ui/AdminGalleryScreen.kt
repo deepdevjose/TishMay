@@ -62,7 +62,8 @@ fun AdminGalleryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val adminCategories = listOf("Microblading", "Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
+    val adminCategories = listOf("Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
+    val allowedCategories = adminCategories
     var galleryItems by remember { mutableStateOf<List<GaleriaItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showEditDialog by remember { mutableStateOf<GaleriaItem?>(null) }
@@ -76,6 +77,8 @@ fun AdminGalleryScreen(
             }
             val items = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(GaleriaItem::class.java)?.copy(id = doc.id)
+            }.filter { item ->
+                allowedCategories.any { category -> item.category.equals(category, ignoreCase = true) }
             }
             galleryItems = items
             isLoading = false
@@ -131,7 +134,7 @@ fun AdminGalleryScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(
-                    onClick = { showEditDialog = GaleriaItem(category = "Microblading") },
+                    onClick = { showEditDialog = GaleriaItem(category = adminCategories.first()) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink),
                     shape = RoundedCornerShape(12.dp),
@@ -293,7 +296,7 @@ private fun AdminServiceManagementDialog(
     var isSaving by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
 
-    val categories = listOf("Microblading", "Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
+    val categories = listOf("Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()

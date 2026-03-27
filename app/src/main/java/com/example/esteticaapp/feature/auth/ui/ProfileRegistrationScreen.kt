@@ -1,5 +1,6 @@
 package com.example.esteticaapp.feature.auth.ui
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,8 +65,8 @@ fun ProfileRegistrationScreen(
     onBackClick: () -> Unit = {}
 ) {
     val auth = remember { FirebaseAuth.getInstance() }
-    val currentUser = auth.currentUser
-    val isGoogleUser = currentUser != null
+    val initialUser = remember { auth.currentUser }
+    val isGoogleUser = initialUser != null
 
     var step by remember { mutableIntStateOf(1) }
 
@@ -81,7 +83,7 @@ fun ProfileRegistrationScreen(
     var selectedAvatarKey by remember { mutableStateOf("person") }
     val selectedAvatarIcon = predefinedAvatars.find { it.first == selectedAvatarKey }?.second ?: Icons.Default.Person
 
-    var email by remember { mutableStateOf(currentUser?.email ?: initialEmail) }
+    var email by remember { mutableStateOf(initialUser?.email ?: initialEmail) }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     
@@ -95,15 +97,17 @@ fun ProfileRegistrationScreen(
     var expandedSex by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(currentUser) {
-        if (currentUser != null && firstName.isEmpty() && lastName.isEmpty()) {
-            val nameParts = currentUser.displayName?.split(" ")
+    LaunchedEffect(initialUser) {
+        if (initialUser != null && firstName.isEmpty() && lastName.isEmpty()) {
+            val nameParts = initialUser.displayName?.split(" ")
             firstName = nameParts?.firstOrNull() ?: ""
             lastName = nameParts?.drop(1)?.joinToString(" ") ?: ""
         }
     }
 
     val sexOptions = listOf("Femenino", "Masculino", "Prefiero no decirlo", "Otro")
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val horizontalPadding = if (screenWidthDp < 480) 16.dp else Dimensions.PaddingLarge
     val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-z]{2,}$".toRegex()
 
     val isEmailValid = email.isEmpty() || email.matches(emailRegex)
@@ -202,7 +206,9 @@ fun ProfileRegistrationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = Dimensions.PaddingLarge),
+                .padding(horizontal = horizontalPadding)
+                .imePadding()
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -439,29 +445,33 @@ fun ProfileRegistrationScreen(
                     if (step == 1) {
                         isLoading = true
                         errorMessage = null
+                        Log.d("Registration", "Step 1: Validating email $email")
                         
-                        if (isGoogleUser && currentUser?.email?.lowercase() == email.lowercase().trim()) {
+                        if (isGoogleUser && initialUser?.email?.lowercase() == email.lowercase().trim()) {
                             val credential = EmailAuthProvider.getCredential(email, password)
-                            currentUser.linkWithCredential(credential)
+                            initialUser.linkWithCredential(credential)
                                 .addOnCompleteListener { task ->
                                     isLoading = false
                                     if (task.isSuccessful || task.exception?.message?.contains("provider already linked") == true) {
+                                        Log.d("Registration", "Step 1: Link success or already linked")
                                         step = 2
                                     } else {
+                                        Log.e("Registration", "Step 1: Link failed", task.exception)
                                         errorMessage = "Error al vincular: ${getFirebaseErrorMessage(task.exception)}"
                                     }
                                 }
                         } else {
+                            @Suppress("DEPRECATION")
                             auth.fetchSignInMethodsForEmail(email)
                                 .addOnCompleteListener { task ->
                                     isLoading = false
                                     if (task.isSuccessful) {
                                         val methods = task.result?.signInMethods
                                         if (!methods.isNullOrEmpty()) {
-                                            if (methods.contains("google.com")) {
-                                                errorMessage = "Este correo ya está en uso con Google. Por favor, inicia sesión con Google primero."
+                                            errorMessage = if (methods.contains("google.com")) {
+                                                "Este correo ya está en uso con Google. Inicia sesión con Google."
                                             } else {
-                                                errorMessage = "Este correo ya está registrado. Intenta iniciar sesión."
+                                                "Este correo ya está registrado. Intenta iniciar sesión."
                                             }
                                         } else {
                                             step = 2
@@ -472,24 +482,63 @@ fun ProfileRegistrationScreen(
                                 }
                         }
                     } else {
+                        // PASO 2: Registro final
                         isLoading = true
                         errorMessage = null
-                        val user = auth.currentUser
-                        if (user != null) {
+                        Log.d("Registration", "Step 2: Starting final registration")
+                        
+                        val handleProfileSave = { userUid: String ->
+                            Log.d("Registration", "Step 2: Saving to Firestore for $userUid")
+                            saveProfileToFirestore(userUid, firstName, lastName, age, sex, email, selectedAvatarKey, {
+                                Log.d("Registration", "Step 2: Success!")
+                                isLoading = false
+                                onSaveSuccess(email)
+                            }) { error ->
+                                Log.e("Registration", "Step 2: Firestore error $error")
+                                isLoading = false
+                                errorMessage = error
+                            }
+                        }
+
+                        // Obtenemos el usuario actual del objeto auth directamente
+                        val liveUser = auth.currentUser
+
+                        if (liveUser != null && isGoogleUser) {
+                            Log.d("Registration", "Step 2: Updating Google user profile")
                             val profileUpdates = UserProfileChangeRequest.Builder()
                                 .setDisplayName("$firstName $lastName")
                                 .build()
                             
-                            user.updateProfile(profileUpdates).addOnCompleteListener { 
-                                if (!user.isEmailVerified) {
-                                    user.sendEmailVerification()
-                                }
-                                
-                                saveProfileToFirestore(user.uid, firstName, lastName, age, sex, email, selectedAvatarKey, onSaveSuccess) { error ->
-                                    isLoading = false
-                                    errorMessage = error
-                                }
+                            liveUser.updateProfile(profileUpdates).addOnCompleteListener { 
+                                handleProfileSave(liveUser.uid)
                             }
+                        } else {
+                            Log.d("Registration", "Step 2: Creating new email user")
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        val newUser = task.result?.user
+                                        Log.d("Registration", "Step 2: User created ${newUser?.uid}")
+                                        
+                                        if (newUser != null) {
+                                            val profileUpdates = UserProfileChangeRequest.Builder()
+                                                .setDisplayName("$firstName $lastName")
+                                                .build()
+                                            
+                                            newUser.updateProfile(profileUpdates).addOnCompleteListener {
+                                                newUser.sendEmailVerification()
+                                                handleProfileSave(newUser.uid)
+                                            }
+                                        } else {
+                                            isLoading = false
+                                            errorMessage = "Error: El usuario no pudo ser creado."
+                                        }
+                                    } else {
+                                        Log.e("Registration", "Step 2: Creation failed", task.exception)
+                                        isLoading = false
+                                        errorMessage = getFirebaseErrorMessage(task.exception)
+                                    }
+                                }
                         }
                     }
                 },
@@ -505,7 +554,7 @@ fun ProfileRegistrationScreen(
                 )
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("Procesando...", style = MaterialTheme.typography.titleMedium)
                 } else {
@@ -599,7 +648,7 @@ private fun saveProfileToFirestore(
     sex: String,
     email: String,
     avatar: String,
-    onSuccess: (String) -> Unit,
+    onSuccess: () -> Unit,
     onError: (String) -> Unit
 ) {
     val userData = hashMapOf(
@@ -611,16 +660,18 @@ private fun saveProfileToFirestore(
         "email" to email,
         "avatar" to avatar,
         "role" to "client",
-        "cancellationCount" to 0
+        "cancellationCount" to 0,
+        "completedAppointmentsCount" to 0
     )
+
     FirebaseFirestore.getInstance().collection("clientes")
         .document(uid)
         .set(userData)
         .addOnSuccessListener {
-            onSuccess(email)
+            onSuccess()
         }
         .addOnFailureListener { e ->
-            onError("Error guardando datos: ${getFirebaseErrorMessage(e)}")
+            onError("Error guardando datos: ${e.localizedMessage}")
         }
 }
 

@@ -1,20 +1,34 @@
+/**
+ * Este código gestiona la agenda de citas del usuario en la aplicación TishMay.
+ * Permite a los clientes visualizar su historial de citas, reservar nuevos servicios
+ * (Microblading, Lash Lifting, etc.), y gestionar su disponibilidad.
+ * 
+ * Tecnologías utilizadas:
+ * - Jetpack Compose: Para la interfaz de usuario reactiva y moderna.
+ * - Firebase Firestore: Almacenamiento y sincronización de citas en tiempo real.
+ * - Firebase Auth: Autenticación segura de usuarios.
+ * - Konfetti: Animaciones de celebración al completar acciones exitosas.
+ * 
+ * Funcionalidades clave:
+ * - Sistema de Invitaciones: Permite generar códigos únicos para que amigas agenden
+ *   en el mismo horario, validando capacidad y actualizando logros de referidos.
+ * - Validación de Disponibilidad: Controla la capacidad por hora y límites diarios/mensuales.
+ * - Sincronización en Tiempo Real: Actualiza el estado de las citas y cancelaciones instantáneamente.
+ */
+
 package com.example.esteticaapp.feature.home.ui
 
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.*
@@ -26,9 +40,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +83,12 @@ fun AgendaScreen() {
     var showCancelDialog by remember { mutableStateOf<Appointment?>(null) }
     var showReviewDialog by remember { mutableStateOf<Appointment?>(null) }
     var showDetailSheet by remember { mutableStateOf<Appointment?>(null) }
+    var showLocationPanel by remember { mutableStateOf(false) }
+    var showInvitationPanel by remember { mutableStateOf<Appointment?>(null) }
+    var showApplyInvitationDialog by remember { mutableStateOf(false) }
+    
     var cancellationCount by remember { mutableIntStateOf(0) }
+    var referralsCount by remember { mutableIntStateOf(0) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     
     var currentUserName by remember { mutableStateOf("") }
@@ -98,6 +120,7 @@ fun AgendaScreen() {
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null && snapshot.exists()) {
                     cancellationCount = (snapshot.get("cancellationCount") as? Long)?.toInt() ?: 0
+                    referralsCount = (snapshot.get("referralsCount") as? Long)?.toInt() ?: 0
                     val fName = snapshot.getString("firstName") ?: ""
                     val lName = snapshot.getString("lastName") ?: ""
                     currentUserName = if (fName.isNotEmpty()) "$fName $lName" else (currentUser.displayName ?: "Usuario")
@@ -129,22 +152,34 @@ fun AgendaScreen() {
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = { 
-                        if (NetworkUtils.isOnline(context)) {
-                            isReadOnlyMode = false
-                            showSheet = true 
-                        } else {
-                            Toast.makeText(context, "Requiere conexión a internet", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    containerColor = PrimaryPink,
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(20.dp),
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Reservar Cita", fontWeight = FontWeight.Bold) },
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    SmallFloatingActionButton(
+                        onClick = { showApplyInvitationDialog = true },
+                        containerColor = Color.White,
+                        contentColor = PrimaryPink,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+                        Icon(Icons.Default.ConfirmationNumber, contentDescription = "Canjear invitación")
+                    }
+                    
+                    ExtendedFloatingActionButton(
+                        onClick = { 
+                            if (NetworkUtils.isOnline(context)) {
+                                isReadOnlyMode = false
+                                showSheet = true 
+                            } else {
+                                Toast.makeText(context, "Requiere conexión a internet", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        containerColor = PrimaryPink,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(20.dp),
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        text = { Text("Reservar Cita", fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
             },
             containerColor = BackgroundPink
         ) { paddingValues ->
@@ -164,7 +199,7 @@ fun AgendaScreen() {
                         .fillMaxSize()
                         .padding(horizontal = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(top = 32.dp, bottom = 100.dp)
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
                 ) {
                     item {
                         Column {
@@ -184,16 +219,26 @@ fun AgendaScreen() {
                                         color = TextSecondary
                                     )
                                 }
-                                IconButton(
-                                    onClick = { 
-                                        isReadOnlyMode = true
-                                        showSheet = true 
-                                    },
-                                    modifier = Modifier
-                                        .background(Color.White, CircleShape)
-                                        .border(1.dp, SoftRose, CircleShape)
-                                ) {
-                                    Icon(Icons.Default.CalendarToday, contentDescription = "Ver disponibilidad", tint = PrimaryPink)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    IconButton(
+                                        onClick = { showLocationPanel = true },
+                                        modifier = Modifier
+                                            .background(Color.White, CircleShape)
+                                            .border(1.dp, SoftRose, CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.LocationOn, contentDescription = "Ver ubicación", tint = PrimaryPink)
+                                    }
+                                    IconButton(
+                                        onClick = { 
+                                            isReadOnlyMode = true
+                                            showSheet = true 
+                                        },
+                                        modifier = Modifier
+                                            .background(Color.White, CircleShape)
+                                            .border(1.dp, SoftRose, CircleShape)
+                                    ) {
+                                        Icon(Icons.Default.CalendarToday, contentDescription = "Ver disponibilidad", tint = PrimaryPink)
+                                    }
                                 }
                             }
                             
@@ -280,7 +325,7 @@ fun AgendaScreen() {
                                 timestamp = System.currentTimeMillis()
                             )
                             db.collection("citas").add(apptWithId).addOnSuccessListener {
-                                val rtdb = FirebaseDatabase.getInstance("https://estetica-e0333-default-rtdb.firebaseio.com")
+                                val rtdb = FirebaseDatabase.getInstance()
                                 rtdb.getReference("admin_notifications").push().setValue(mapOf(
                                     "title" to "Nueva Cita",
                                     "message" to "$finalName agendó ${newAppt.service}",
@@ -317,6 +362,10 @@ fun AgendaScreen() {
                                 showDetailSheet = null
                                 showReviewDialog = it
                             }
+                        },
+                        onInvite = {
+                            showDetailSheet = null
+                            showInvitationPanel = it
                         },
                         onClose = { showDetailSheet = null }
                     )
@@ -374,6 +423,135 @@ fun AgendaScreen() {
                                 showConfetti = true
                                 Toast.makeText(context, "¡Gracias por tu opinión!", Toast.LENGTH_SHORT).show()
                                 scope.launch { delay(3000); showConfetti = false }
+                            }
+                    }
+                )
+            }
+
+            if (showLocationPanel) {
+                ModalBottomSheet(
+                    onDismissRequest = { showLocationPanel = false },
+                    containerColor = Color.White
+                ) {
+                    LocationPanel(
+                        onClose = { showLocationPanel = false },
+                        onOpenMaps = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.app.goo.gl/YourMapLink"))
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+            }
+
+            if (showInvitationPanel != null) {
+                ModalBottomSheet(
+                    onDismissRequest = { showInvitationPanel = null },
+                    containerColor = Color.White
+                ) {
+                    InvitationPanel(
+                        appointment = showInvitationPanel!!,
+                        onClose = { showInvitationPanel = null },
+                        onShare = { code ->
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                val text = "¡Hola! Te invito a TISHMAY para que nos atendamos juntas. " +
+                                        "Usa este código en la app para agendar automáticamente en mi mismo horario: $code"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Invitar amiga"))
+                        }
+                    )
+                }
+            }
+
+            if (showApplyInvitationDialog) {
+                var isApplying by remember { mutableStateOf(false) }
+                ApplyInvitationDialog(
+                    onDismiss = { if (!isApplying) showApplyInvitationDialog = false },
+                    onApply = { code ->
+                        if (isApplying) return@ApplyInvitationDialog
+                        isApplying = true
+                        
+                        db.collection("citas")
+                            .whereEqualTo("invitationCode", code)
+                            .get()
+                            .addOnSuccessListener { snapshot ->
+                                if (!snapshot.isEmpty) {
+                                    val sourceAppt = snapshot.documents.first().toObject(Appointment::class.java)
+                                    val sourceOwnerId = sourceAppt?.userId ?: ""
+                                    
+                                    if (sourceAppt != null) {
+                                        if (sourceOwnerId == currentUser?.uid) {
+                                            Toast.makeText(context, "No puedes usar tu propio código", Toast.LENGTH_SHORT).show()
+                                            isApplying = false
+                                            return@addOnSuccessListener
+                                        }
+
+                                        // Verificar si el usuario ya tiene cita en ese horario para evitar duplicados
+                                        db.collection("citas")
+                                            .whereEqualTo("userId", currentUser?.uid)
+                                            .whereEqualTo("date", sourceAppt.date)
+                                            .whereEqualTo("time", sourceAppt.time)
+                                            .whereIn("status", listOf("Pendiente", "Confirmada", "Completada"))
+                                            .get()
+                                            .addOnSuccessListener { myMatches ->
+                                                if (!myMatches.isEmpty) {
+                                                    Toast.makeText(context, "Ya tienes una cita en este horario", Toast.LENGTH_SHORT).show()
+                                                    showApplyInvitationDialog = false
+                                                    isApplying = false
+                                                    return@addOnSuccessListener
+                                                }
+
+                                                // Verificar disponibilidad real
+                                                db.collection("config").document("appointments").get().addOnSuccessListener { config ->
+                                                    val maxCap = (config.get("maxCapacityPerHour") as? Number)?.toInt() ?: 2
+                                                    db.collection("citas")
+                                                        .whereEqualTo("date", sourceAppt.date)
+                                                        .whereEqualTo("time", sourceAppt.time)
+                                                        .whereIn("status", listOf("Pendiente", "Confirmada", "Completada"))
+                                                        .get()
+                                                        .addOnSuccessListener { currentBookings ->
+                                                            if (currentBookings.size() < maxCap) {
+                                                                val finalName = currentUserName.ifEmpty { (currentUser?.displayName ?: "Usuario") }
+                                                                val newAppt = Appointment(
+                                                                    userId = currentUser?.uid ?: "",
+                                                                    clientName = finalName,
+                                                                    service = sourceAppt.service,
+                                                                    date = sourceAppt.date,
+                                                                    time = sourceAppt.time,
+                                                                    status = "Pendiente",
+                                                                    timestamp = System.currentTimeMillis()
+                                                                )
+                                                                
+                                                                db.runTransaction { transaction ->
+                                                                    val newRef = db.collection("citas").document()
+                                                                    transaction.set(newRef, newAppt)
+                                                                    
+                                                                    // IMPORTANTE: Actualizar referralsCount para que el logro se sincronice
+                                                                    val inviterRef = db.collection("clientes").document(sourceOwnerId)
+                                                                    transaction.update(inviterRef, "referralsCount", FieldValue.increment(1))
+                                                                }.addOnSuccessListener {
+                                                                    showApplyInvitationDialog = false
+                                                                    showConfetti = true
+                                                                    Toast.makeText(context, "¡Cita agendada con éxito!", Toast.LENGTH_LONG).show()
+                                                                    scope.launch { delay(3000); showConfetti = false }
+                                                                    isApplying = false
+                                                                }.addOnFailureListener {
+                                                                    Toast.makeText(context, "Error al agendar", Toast.LENGTH_SHORT).show()
+                                                                    isApplying = false
+                                                                }
+                                                            } else {
+                                                                Toast.makeText(context, "Horario lleno", Toast.LENGTH_SHORT).show()
+                                                                isApplying = false
+                                                            }
+                                                        }
+                                                }
+                                            }
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Código no válido", Toast.LENGTH_SHORT).show()
+                                    isApplying = false
+                                }
                             }
                     }
                 )
@@ -641,7 +819,7 @@ fun AppointmentForm(
         
         val rows = timeSlots.chunked(2)
         rows.forEach { rowSlots ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowSlots.forEach { t ->
                     TimeSlotCard(
                         time = t,
@@ -773,8 +951,7 @@ fun ServiceChip(name: String, icon: ImageVector, isSelected: Boolean, onClick: (
                 text = name, 
                 color = if (isSelected) Color.White else TextPrimary, 
                 style = MaterialTheme.typography.bodyMedium, 
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-            )
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
         }
     }
 }
@@ -922,6 +1099,7 @@ fun AppointmentDetailSheet(
     appointment: Appointment,
     onCancel: (Appointment) -> Unit,
     onReview: (Appointment) -> Unit,
+    onInvite: (Appointment) -> Unit,
     onClose: () -> Unit
 ) {
     Column(
@@ -974,52 +1152,61 @@ fun AppointmentDetailSheet(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        when (appointment.status) {
-            "Pendiente", "Confirmada" -> {
+        if (appointment.status == "Pendiente" || appointment.status == "Confirmada") {
+            Button(
+                onClick = { onInvite(appointment) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.People, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Invitar a una amiga", fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Button(
+                onClick = { onCancel(appointment) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed.copy(alpha = 0.1f), contentColor = ErrorRed),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f))
+            ) {
+                Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Cancelar Cita", fontWeight = FontWeight.Bold)
+            }
+        } else if (appointment.status == "Completada") {
+            if (appointment.review == null) {
                 Button(
-                    onClick = { onCancel(appointment) },
+                    onClick = { onReview(appointment) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed.copy(alpha = 0.1f), contentColor = ErrorRed),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f))
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cancelar Cita", fontWeight = FontWeight.Bold)
+                    Text("Calificar Experiencia", fontWeight = FontWeight.Bold)
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    enabled = false,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.LightGray)
+                ) {
+                    Text("¡Gracias por tu calificación!", color = Color.Gray)
                 }
             }
-            "Completada" -> {
-                if (appointment.review == null) {
-                    Button(
-                        onClick = { onReview(appointment) },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Star, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Calificar Experiencia", fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        enabled = false,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color.LightGray)
-                    ) {
-                        Text("¡Gracias por tu calificación!", color = Color.Gray)
-                    }
-                }
-            }
-            else -> {
-                Text(
-                    text = "No hay acciones para este estado.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(vertical = 12.dp)
-                )
-            }
+        } else {
+            Text(
+                text = "No hay acciones para este estado.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -1031,4 +1218,185 @@ fun AppointmentDetailSheet(
             Text("Cerrar", color = Color.Gray, fontWeight = FontWeight.Medium)
         }
     }
+}
+
+@Composable
+fun LocationPanel(onClose: () -> Unit, onOpenMaps: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Ubicación", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("TISHMAY", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("5PVR+8P3, 42763 Panuaya, Hgo.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Card(
+            modifier = Modifier.fillMaxWidth().height(200.dp).clickable { onOpenMaps() },
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(4.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.mapa_estatica),
+                contentDescription = "Mapa de ubicación",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onOpenMaps,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink)
+        ) {
+            Icon(Icons.Default.Map, null)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Ver en Google Maps", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun InvitationPanel(appointment: Appointment, onClose: () -> Unit, onShare: (String) -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    var invitationCode by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(appointment.id) {
+        if (appointment.invitationCode != null) {
+            invitationCode = appointment.invitationCode
+            isLoading = false
+        } else {
+            val newCode = (100000..999999).random().toString()
+            db.collection("citas").document(appointment.id)
+                .update("invitationCode", newCode)
+                .addOnSuccessListener {
+                    invitationCode = newCode
+                    isLoading = false
+                }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp)
+            .padding(bottom = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Invitar Amiga", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Icon(Icons.Default.People, null, modifier = Modifier.size(64.dp), tint = PrimaryPink)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            "¡Agenda con tu mejor amiga!",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        
+        Text(
+            "Comparte este código con ella para que agende automáticamente en tu mismo horario mientras haya disponibilidad.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        if (isLoading) {
+            CircularProgressIndicator(color = PrimaryPink)
+        } else {
+            Surface(
+                color = BackgroundPink,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(2.dp, PrimaryPink.copy(alpha = 0.3f))
+            ) {
+                Text(
+                    text = invitationCode,
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Black,
+                    color = PrimaryPink,
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
+                    letterSpacing = 4.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Button(
+                onClick = { onShare(invitationCode) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+            ) {
+                Icon(painterResource(R.drawable.ic_whatsapp), null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Compartir por WhatsApp", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun ApplyInvitationDialog(onDismiss: () -> Unit, onApply: (String) -> Unit) {
+    var code by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Canjear Invitación", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Ingresa el código que te envió tu amiga para agendar juntas.")
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { if (it.length <= 6) code = it.filter { char -> char.isDigit() } },
+                    placeholder = { Text("Código de 6 dígitos") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryPink, unfocusedBorderColor = SoftRose),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = TextStyle(
+                        textAlign = TextAlign.Center,
+                        fontSize = 24.sp,
+                        letterSpacing = 4.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (code.length == 6) onApply(code) },
+                enabled = code.length == 6,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink)
+            ) { Text("Aplicar", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar", color = Color.Gray) }
+        }
+    )
 }

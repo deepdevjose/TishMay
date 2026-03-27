@@ -19,59 +19,22 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -79,13 +42,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -152,9 +110,9 @@ fun CameraIAScreen(onLockNavigation: (Boolean) -> Unit = {}) {
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 Button(
-                    onClick = { 
+                    onClick = {
                         cameraPermissionState.launchPermissionRequest()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = VibrantPink),
@@ -162,9 +120,9 @@ fun CameraIAScreen(onLockNavigation: (Boolean) -> Unit = {}) {
                 ) {
                     Text("Conceder Permiso")
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Button(
                     onClick = {
                         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -192,12 +150,10 @@ fun CameraContent(context: Context, onLockNavigation: (Boolean) -> Unit = {}) {
     var isAnalyzing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Bloquear navegación externa si está analizando o mostrando resultado
     LaunchedEffect(isAnalyzing, resultJson) {
         onLockNavigation(isAnalyzing || resultJson != null)
     }
 
-    // Bloquear botón atrás físico
     if (isAnalyzing || resultJson != null) {
         BackHandler(enabled = true) {
             if (resultJson != null) {
@@ -206,7 +162,6 @@ fun CameraContent(context: Context, onLockNavigation: (Boolean) -> Unit = {}) {
         }
     }
 
-    // Estados para detección en tiempo real
     var isFaceDetected by remember { mutableStateOf(false) }
     var isEyesDetected by remember { mutableStateOf(false) }
 
@@ -326,25 +281,43 @@ fun CameraContent(context: Context, onLockNavigation: (Boolean) -> Unit = {}) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = VibrantPink, modifier = Modifier.size(24.dp))
+                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                val pulseScale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ), label = "iconPulse"
+                )
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = VibrantPink,
+                    modifier = Modifier.size(24.dp).graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Análisis de Mirada IA",
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.graphicsLayer {
+                        shadowElevation = 8.dp.toPx()
+                    }
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 DetectionIndicator("Rostro", isFaceDetected)
-                Spacer(modifier = Modifier.width(20.dp))
+                Spacer(modifier = Modifier.width(24.dp))
                 DetectionIndicator("Ojos", isEyesDetected)
             }
         }
@@ -405,105 +378,188 @@ fun CameraContent(context: Context, onLockNavigation: (Boolean) -> Unit = {}) {
 @Composable
 fun DetectionIndicator(label: String, isDetected: Boolean) {
     val indicatorColor by animateColorAsState(
-        targetValue = if (isDetected) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.4f),
-        animationSpec = tween(500), label = ""
+        targetValue = if (isDetected) Color(0xFF00E676) else Color.White.copy(alpha = 0.3f),
+        animationSpec = tween(600), label = "color"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isDetected) 1.1f else 1.0f,
+        animationSpec = tween(400, easing = LinearEasing), label = "scale"
     )
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = if (isDetected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = indicatorColor,
-            modifier = Modifier.size(16.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(indicatorColor, CircleShape)
+                .border(2.dp, if (isDetected) Color.White.copy(alpha = 0.5f) else Color.Transparent, CircleShape)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = if (isDetected) "$label detectado" else label,
+            text = label,
             color = if (isDetected) Color.White else Color.White.copy(alpha = 0.6f),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isDetected) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isDetected) FontWeight.ExtraBold else FontWeight.Medium
         )
     }
 }
 
 @Composable
 fun FaceGuideOverlay(isFaceDetected: Boolean) {
-    val borderColor by animateColorAsState(
-        targetValue = if (isFaceDetected) Color(0xFF4CAF50).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.3f),
-        animationSpec = tween(500), label = ""
+    val infiniteTransition = rememberInfiniteTransition(label = "guide")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500),
+            repeatMode = RepeatMode.Reverse
+        ), label = "alpha"
     )
 
-    Canvas(modifier = Modifier.fillMaxSize().graphicsLayer(alpha = 0.99f)) {
-        val width = size.width * 0.7f
-        val height = size.height * 0.45f
+    val borderColor by animateColorAsState(
+        targetValue = if (isFaceDetected) VibrantPink else Color.White,
+        animationSpec = tween(500), label = "color"
+    )
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width * 0.72f
+        val height = size.height * 0.48f
         val left = (size.width - width) / 2
-        val top = (size.height - height) / 2.5f
+        val top = (size.height - height) / 2.6f
 
         val ovalPath = Path().apply {
             addOval(Rect(left, top, left + width, top + height))
         }
-        
-        drawRect(Color.Black.copy(alpha = 0.4f))
-        
+
+        // Fondo oscuro con agujero
         drawPath(
-            path = ovalPath,
-            color = Color.Transparent,
-            blendMode = BlendMode.Clear
+            path = Path().apply {
+                addRect(Rect(0f, 0f, size.width, size.height))
+                addPath(ovalPath)
+                fillType = PathFillType.EvenOdd
+            },
+            color = Color.Black.copy(alpha = 0.5f)
         )
 
+        // Borde elegante
         drawOval(
-            color = borderColor,
+            color = borderColor.copy(alpha = borderAlpha),
             topLeft = Offset(left, top),
             size = Size(width, height),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+        )
+        
+        // Esquinas decorativas
+        val cornerSize = 40.dp.toPx()
+        val padding = 10.dp.toPx()
+        
+        // Arriba Izquierda
+        drawPath(
+            path = Path().apply {
+                moveTo(left - padding, top - padding + cornerSize)
+                lineTo(left - padding, top - padding)
+                lineTo(left - padding + cornerSize, top - padding)
+            },
+            color = borderColor,
+            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+        )
+        
+        // Arriba Derecha
+        drawPath(
+            path = Path().apply {
+                moveTo(left + width + padding - cornerSize, top - padding)
+                lineTo(left + width + padding, top - padding)
+                lineTo(left + width + padding, top - padding + cornerSize)
+            },
+            color = borderColor,
+            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+        )
+        
+        // Abajo Izquierda
+        drawPath(
+            path = Path().apply {
+                moveTo(left - padding, top + height + padding - cornerSize)
+                lineTo(left - padding, top + height + padding)
+                lineTo(left - padding + cornerSize, top + height + padding)
+            },
+            color = borderColor,
+            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+        )
+        
+        // Abajo Derecha
+        drawPath(
+            path = Path().apply {
+                moveTo(left + width + padding - cornerSize, top + height + padding)
+                lineTo(left + width + padding, top + height + padding)
+                lineTo(left + width + padding, top + height + padding - cornerSize)
+            },
+            color = borderColor,
+            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
         )
     }
 }
 
 @Composable
 fun CaptureButton(modifier: Modifier, isEnabled: Boolean, onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "")
-    val scale by infiniteTransition.animateFloat(
+    val infiniteTransition = rememberInfiniteTransition(label = "capture")
+    val outerScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (isEnabled) 1.05f else 1f,
+        targetValue = if (isEnabled) 1.15f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000),
+            animation = tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
-        ), label = ""
+        ), label = "outer"
     )
 
-    val buttonColor by animateColorAsState(
-        targetValue = if (isEnabled) VibrantPink else Color.Gray.copy(alpha = 0.3f),
-        label = ""
-    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(if (isPressed) 0.9f else 1f, label = "press")
 
     Box(
         modifier = modifier
-            .size(90.dp)
-            .graphicsLayer(scaleX = scale, scaleY = scale),
+            .size(100.dp)
+            .graphicsLayer(scaleX = pressScale, scaleY = pressScale),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = CircleShape,
-            color = Color.Transparent,
-            border = androidx.compose.foundation.BorderStroke(3.dp, if (isEnabled) Color.White else Color.White.copy(alpha = 0.3f))
-        ) {}
-
+        // Anillo exterior animado
         Box(
             modifier = Modifier
-                .size(70.dp)
-                .clip(CircleShape)
-                .background(buttonColor)
-                .clickable(enabled = isEnabled) { onClick() },
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .graphicsLayer(scaleX = outerScale, scaleY = outerScale)
+                .border(
+                    width = 2.dp,
+                    brush = Brush.sweepGradient(
+                        listOf(VibrantPink.copy(0.2f), VibrantPink, VibrantPink.copy(0.2f))
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        // Botón principal
+        Surface(
+            modifier = Modifier
+                .size(76.dp)
+                .clickable(
+                    enabled = isEnabled,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick
+                ),
+            shape = CircleShape,
+            color = if (isEnabled) VibrantPink else Color.White.copy(alpha = 0.2f),
+            shadowElevation = if (isEnabled) 12.dp else 0.dp
         ) {
-            Icon(
-                Icons.Default.Face, 
-                contentDescription = null, 
-                tint = if (isEnabled) Color.White else Color.White.copy(alpha = 0.5f), 
-                modifier = Modifier.size(32.dp)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    tint = if (isEnabled) Color.White else Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.size(36.dp)
+                )
+            }
         }
     }
 }
@@ -513,48 +569,58 @@ fun ErrorOverlay(message: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(Color.Black.copy(alpha = 0.8f))
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(8.dp)
+            elevation = CardDefaults.cardElevation(12.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    Icons.Default.ErrorOutline,
-                    contentDescription = null,
-                    tint = Color.Red.copy(alpha = 0.7f),
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    color = Color.Red.copy(alpha = 0.1f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(64.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.PriorityHigh,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    "Ajuste necesario",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    "¡Casi listo!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     message,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = Color.Gray,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = VibrantPink),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                 ) {
-                    Text("Reintentar")
+                    Text("Intentar de nuevo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }
@@ -568,75 +634,100 @@ fun ScanningOverlay(message: String) {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
+            animation = tween(2500, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "line"
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize().blur(10.dp).background(Color.Black.copy(alpha = 0.4f)))
+        // Blur suave de fondo
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val y = size.height * (0.25f + progress * 0.5f)
-            
+
+            // Línea de escaneo láser
             drawLine(
-                color = VibrantPink,
-                start = Offset(size.width * 0.15f, y),
-                end = Offset(size.width * 0.85f, y),
-                strokeWidth = 3.dp.toPx(),
+                brush = Brush.horizontalGradient(
+                    listOf(Color.Transparent, VibrantPink, Color.Transparent)
+                ),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 4.dp.toPx(),
                 cap = StrokeCap.Round
             )
-            
+
+            // Resplandor del láser
             drawRect(
                 brush = Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.5f to VibrantPink.copy(alpha = 0.3f),
-                    1f to Color.Transparent,
-                    startY = y - 40.dp.toPx(),
-                    endY = y + 40.dp.toPx()
+                    listOf(Color.Transparent, VibrantPink.copy(alpha = 0.4f), Color.Transparent),
+                    startY = y - 60.dp.toPx(),
+                    endY = y + 60.dp.toPx()
                 ),
-                topLeft = Offset(size.width * 0.15f, y - 40.dp.toPx()),
-                size = Size(size.width * 0.7f, 80.dp.toPx())
-            )
-
-            val points = listOf(
-                Offset(size.width * 0.4f, size.height * 0.4f),
-                Offset(size.width * 0.6f, size.height * 0.4f),
-                Offset(size.width * 0.5f, size.height * 0.5f),
-                Offset(size.width * 0.45f, size.height * 0.6f),
-                Offset(size.width * 0.55f, size.height * 0.6f)
+                topLeft = Offset(0f, y - 60.dp.toPx()),
+                size = Size(size.width, 120.dp.toPx())
             )
             
+            // Puntos de biométrica "detectados"
+            val points = listOf(
+                Offset(size.width * 0.35f, size.height * 0.38f),
+                Offset(size.width * 0.65f, size.height * 0.38f),
+                Offset(size.width * 0.5f, size.height * 0.48f),
+                Offset(size.width * 0.4f, size.height * 0.58f),
+                Offset(size.width * 0.6f, size.height * 0.58f)
+            )
+
             points.forEach { point ->
-                drawCircle(
-                    color = VibrantPink,
-                    radius = (2.dp.toPx() * (1f + progress)),
-                    center = point,
-                    alpha = 0.8f
-                )
+                val distance = kotlin.math.abs(point.y - y)
+                val alpha = (1f - (distance / (size.height * 0.1f))).coerceIn(0f, 1f)
+                
+                if (alpha > 0) {
+                    drawCircle(
+                        color = VibrantPink,
+                        radius = 4.dp.toPx() * alpha,
+                        center = point,
+                        alpha = alpha
+                    )
+                    drawCircle(
+                        color = VibrantPink.copy(alpha = 0.3f),
+                        radius = 12.dp.toPx() * alpha,
+                        center = point,
+                        alpha = alpha
+                    )
+                }
             }
         }
 
         Column(
-            modifier = Modifier.align(Alignment.Center).padding(top = 280.dp),
+            modifier = Modifier.align(Alignment.Center).padding(top = 260.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = message,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = VibrantPink, modifier = Modifier.size(16.dp))
+            Surface(
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.padding(horizontal = 24.dp)
+            ) {
+                Text(
+                    text = message,
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.background(VibrantPink.copy(alpha = 0.1f), CircleShape).padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = VibrantPink, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "POTENCIADO POR IA",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontWeight = FontWeight.Light,
+                    text = "VISAGISMO DIGITAL",
+                    color = VibrantPink,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -689,7 +780,7 @@ fun ResultBottomSheet(json: JSONObject, onClose: () -> Unit) {
                             Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
                         }
                     }
-                    
+
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color.LightGray.copy(alpha = 0.3f))
 
                     Box(
@@ -698,7 +789,7 @@ fun ResultBottomSheet(json: JSONObject, onClose: () -> Unit) {
                             .background(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(VibrantPink, Color(0xFFFF80AB))
-                                ), 
+                                ),
                                 shape = RoundedCornerShape(24.dp)
                             )
                             .padding(24.dp),
@@ -706,9 +797,9 @@ fun ResultBottomSheet(json: JSONObject, onClose: () -> Unit) {
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                "ESTILO RECOMENDADO", 
-                                style = MaterialTheme.typography.labelLarge, 
-                                color = Color.White.copy(alpha = 0.9f), 
+                                "ESTILO RECOMENDADO",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White.copy(alpha = 0.9f),
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
@@ -780,7 +871,7 @@ fun ResultBottomSheet(json: JSONObject, onClose: () -> Unit) {
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -835,7 +926,7 @@ fun ResultBottomSheet(json: JSONObject, onClose: () -> Unit) {
                     ) {
                         Text("Finalizar análisis", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         "Resultados guardados en tu perfil",
@@ -886,17 +977,17 @@ private suspend fun procesarAnalisisHibrido(
 
     try {
         val rotations = listOf(0, 90, 180, 270)
-        
+
         for (rotation in rotations) {
             val inputImage = InputImage.fromBitmap(inputBitmap, rotation)
             faces = faceDetector.process(inputImage).await()
-            
+
             if (faces.isNotEmpty()) {
                 successfulRotation = rotation
                 break
             }
         }
-        
+
         if (faces.isEmpty()) {
             onResult(null, "No detectamos tu rostro claramente. Asegúrate de estar en un lugar iluminado y mirar de frente.")
             return
@@ -906,8 +997,8 @@ private suspend fun procesarAnalisisHibrido(
             val matrix = android.graphics.Matrix()
             matrix.postRotate(successfulRotation.toFloat())
             finalBitmap = Bitmap.createBitmap(
-                inputBitmap, 0, 0, 
-                inputBitmap.width, inputBitmap.height, 
+                inputBitmap, 0, 0,
+                inputBitmap.width, inputBitmap.height,
                 matrix, true
             )
         }
@@ -915,14 +1006,14 @@ private suspend fun procesarAnalisisHibrido(
         val face = faces[0]
         val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)
         val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)
-        
+
         if (leftEye == null || rightEye == null) {
             onResult(null, "Tus ojos no son visibles. Por favor, retira anteojos o mejora la luz.")
             return
         }
 
         val biometriaStr = extraerDatosBiometricos(face)
-        
+
         val prompt = """
             Actúa como un experto en estética y visagismo facial de alta gama.
             Analiza la imagen adjunta y utiliza los datos biométricos extraídos.
@@ -963,7 +1054,7 @@ private suspend fun procesarAnalisisHibrido(
                 }
                 diagnosticoData["timestamp"] = now
                 diagnosticoData["biometria_mlkit"] = biometriaStr
-                
+
                 // Guardar en el historial
                 db.collection("clientes").document(user.uid)
                     .collection("analysis_history")
@@ -1005,4 +1096,11 @@ private fun extraerDatosBiometricos(face: com.google.mlkit.vision.face.Face): St
         sb.append("Ceja Derecha: ${contour.points.take(5).joinToString { "(${it.x.toInt()},${it.y.toInt()})" }}\n")
     }
     return sb.toString()
+}
+
+fun ImageProxy.toBitmap(): Bitmap {
+    val buffer = planes[0].buffer
+    val bytes = ByteArray(buffer.remaining())
+    buffer.get(bytes)
+    return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
 }

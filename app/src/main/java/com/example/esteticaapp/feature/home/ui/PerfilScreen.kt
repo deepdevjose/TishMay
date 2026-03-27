@@ -1,3 +1,16 @@
+/**
+ * Pantalla de Perfil de usuario para la aplicación TishMay.
+ * Gestiona la información personal, el historial de análisis de mirada IA,
+ * y el sistema de logros y recompensas (fidelidad, embajadora, etc.).
+ * 
+ * Tecnologías y conceptos clave:
+ * - Firebase Firestore: Escucha en tiempo real de los datos del perfil y logros.
+ * - Coil: Carga dinámica de avatares e imágenes de perfil.
+ * - Sistema de Gamificación: Cálculo dinámico de niveles (Básico, VIP, Elite) y
+ *   visualización de progreso mediante barras de estado.
+ * - Diálogos Personalizados: Visualización detallada de diagnósticos previos de IA.
+ */
+
 package com.example.esteticaapp.feature.home.ui
 
 import androidx.compose.foundation.background
@@ -599,7 +612,7 @@ fun FullDiagnosticDialog(data: Map<String, Any>, onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                Brush.verticalGradient(listOf(VibrantPink, Color(0xFFFF80AB))), 
+                                Brush.verticalGradient(listOf(VibrantPink, Color(0xFFFF80AB))),
                                 RoundedCornerShape(24.dp)
                             )
                             .padding(24.dp),

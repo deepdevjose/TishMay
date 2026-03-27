@@ -9,5 +9,6 @@ data class Appointment(
     val time: String = "",
     val status: String = "Pendiente",
     val timestamp: Long = System.currentTimeMillis(),
-    val review: Map<String, Any>? = null
+    val review: Map<String, Any>? = null,
+    val invitationCode: String? = null
 )

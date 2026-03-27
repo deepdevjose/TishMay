@@ -1,5 +1,6 @@
 package com.example.esteticaapp.feature.gallery.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,17 +33,35 @@ import com.example.esteticaapp.ui.theme.PrimaryPink
 import com.example.esteticaapp.ui.theme.SoftRose
 import com.example.esteticaapp.ui.theme.TextPrimary
 import com.example.esteticaapp.ui.theme.TextSecondary
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun GaleriaScreen(onNavigateToBooking: () -> Unit = {}) {
-    val categories = listOf("Todos", "Microblading", "Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
+    val categories = listOf("Todos", "Lash Lifting", "Extensión de Pestañas", "Diseño de Cejas")
+    val allowedCategories = categories.filterNot { it == "Todos" }
     var selectedCategory by remember { mutableStateOf("Todos") }
     var initialIndexForViewer by remember { mutableStateOf<Int?>(null) }
     
     val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
     var galleryItems by remember { mutableStateOf<List<GaleriaItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+
+    // Marcar logro "Exploradora" al entrar
+    LaunchedEffect(Unit) {
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            db.collection("clientes").document(currentUser.uid)
+                .update("hasExploredGallery", true)
+                .addOnSuccessListener {
+                    Log.d("GaleriaScreen", "Logro 'Exploradora' actualizado correctamente")
+                }
+                .addOnFailureListener { e ->
+                    Log.e("GaleriaScreen", "Error al actualizar logro 'Exploradora'", e)
+                }
+        }
+    }
 
     // Fetch services
     LaunchedEffect(Unit) {
@@ -54,6 +73,8 @@ fun GaleriaScreen(onNavigateToBooking: () -> Unit = {}) {
             
             val items = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(GaleriaItem::class.java)?.copy(id = doc.id)
+            }.filter { item ->
+                allowedCategories.any { category -> item.category.equals(category, ignoreCase = true) }
             }
             galleryItems = items
             isLoading = false
@@ -73,7 +94,7 @@ fun GaleriaScreen(onNavigateToBooking: () -> Unit = {}) {
                 .padding(padding)
         ) {
             // Header para usuario normal
-            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp).statusBarsPadding()) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
                 Text(
                     text = "Nuestros Servicios",
                     style = MaterialTheme.typography.headlineMedium.copy(

@@ -138,15 +138,23 @@ fun ForgotPasswordScreen(
         },
         containerColor = BackgroundPink
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp)
-                .verticalScroll(scrollState),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+                .padding(paddingValues),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 460.dp)
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(scrollState)
+                    .imePadding()
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
             
             if (!isEmailSent) {
                 Spacer(modifier = Modifier.height(48.dp))
@@ -404,6 +412,7 @@ fun ForgotPasswordScreen(
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }

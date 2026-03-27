@@ -1,3 +1,20 @@
+/**
+ * MainScreen es la estructura principal de navegación de la aplicación para el cliente.
+ * Actúa como el contenedor base que orquesta el flujo entre las diferentes secciones
+ * mediante una barra de navegación inferior (Bottom Navigation).
+ * 
+ * Tecnologías utilizadas:
+ * - Navigation Compose: Para gestionar el NavHost y el NavController.
+ * - Jetpack Compose Scaffold: Proporciona la estructura estándar con barra de navegación.
+ * - Material 3: Componentes de NavigationBar y NavigationBarItem para una UI moderna.
+ * 
+ * Funcionalidades clave:
+ * - Navegación entre Agenda, Galería, Cámara IA y Perfil.
+ * - Control de Bloqueo: Permite desactivar la navegación cuando se realizan procesos
+ *   críticos (como el escaneo de IA) para evitar interrupciones.
+ * - Gestión de BackStack: Asegura que el estado de las pantallas se preserve al navegar.
+ */
+
 package com.example.esteticaapp.feature.home.ui
 
 import androidx.compose.foundation.layout.padding

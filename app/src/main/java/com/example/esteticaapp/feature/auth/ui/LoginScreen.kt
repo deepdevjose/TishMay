@@ -10,9 +10,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -77,6 +79,7 @@ fun LoginScreen(
     val coroutineScope = rememberCoroutineScope()
     val hapticFeedback = LocalHapticFeedback.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
 
     // Estado global de carga para bloquear UI
     val isAnyLoading = isLoadingEmail || loginState is LoginUiState.Loading
@@ -141,7 +144,12 @@ fun LoginScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 460.dp)
+                .verticalScroll(scrollState)
+                .imePadding()
+                .navigationBarsPadding()
         ) {
             AnimatedVisibility(
                 visible = isScreenVisible,
@@ -156,12 +164,6 @@ fun LoginScreen(
                             fontWeight = FontWeight.Black
                         ),
                         color = PrimaryPink
-                    )
-                    Text(
-                        text = "ESTÉTICA PROFESIONAL",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary,
-                        letterSpacing = 1.0.sp
                     )
                     
                     Spacer(modifier = Modifier.height(Dimensions.SpacerMedium))
