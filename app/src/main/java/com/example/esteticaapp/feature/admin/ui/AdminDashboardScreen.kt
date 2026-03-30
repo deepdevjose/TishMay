@@ -1,3 +1,10 @@
+/*
+ * AdminDashboardScreen muestra el panel principal de administracion de citas.
+ * Presenta resumen diario, filtros por estado y listado de citas en tiempo real.
+ * Permite confirmar, rechazar, completar o marcar inasistencia,
+ * actualizando Firestore y enviando notificaciones al cliente cuando corresponde.
+ */
+
 package com.example.esteticaapp.feature.admin.ui
 
 import androidx.compose.foundation.BorderStroke

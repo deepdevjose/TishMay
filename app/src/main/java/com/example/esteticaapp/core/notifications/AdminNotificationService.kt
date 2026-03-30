@@ -1,3 +1,11 @@
+/*
+ * AdminNotificationService mantiene un listener en Realtime Database
+ * para detectar nuevas entradas en 'admin_notifications' y mostrar
+ * notificaciones locales al administrador cuando no han sido leidas.
+ * Corre en primer plano, escucha los ultimos nodos al iniciar,
+ * filtra notificaciones viejas, marca como leido y libera listener al destruirse.
+ */
+
 package com.example.esteticaapp.core.notifications
 
 import android.app.Service

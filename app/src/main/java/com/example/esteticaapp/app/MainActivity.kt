@@ -1,3 +1,10 @@
+/*
+ * MainActivity es el punto de entrada de la app.
+ * Inicializa notificaciones, solicita permiso de notificaciones (Android 13+),
+ * observa el estado de red y decide la pantalla inicial segun sesion/rol (admin o cliente).
+ * También inicia o detiene el servicio de notificaciones para administradores
+ * y renderiza la navegación principal con un overlay global cuando no hay conexion.
+ */
 package com.example.esteticaapp.app
 
 import android.content.Intent

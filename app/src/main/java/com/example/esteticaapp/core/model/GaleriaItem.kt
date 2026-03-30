@@ -1,3 +1,9 @@
+/*
+ * GaleriaItem representa un elemento visual de la galeria de la app.
+ * Contiene identificador, título, URL de imagen, categoria y descripcion
+ * para mostrar y organizar contenido, además de la fecha de última actualizacion.
+ */
+
 package com.example.esteticaapp.core.model
 
 data class GaleriaItem(

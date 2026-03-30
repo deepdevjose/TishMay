@@ -1,3 +1,10 @@
+/*
+ * AdminGalleryScreen permite al administrador gestionar la galeria de servicios.
+ * Carga items desde Firestore, los muestra por categorias fijas y permite
+ * crear/editar cada servicio mediante un dialogo con subida de imagen a Cloudinary.
+ * Incluye guardado en base de datos y feedback visual con snackbar/estados de carga.
+ */
+
 package com.example.esteticaapp.feature.admin.ui
 
 import android.content.Context

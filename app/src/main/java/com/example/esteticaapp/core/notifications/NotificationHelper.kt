@@ -1,3 +1,10 @@
+/*
+ * NotificationHelper centraliza la configuración y emision de notificaciones.
+ * Crea el canal de notificaciones requerido por Android, muestra alertas locales
+ * con redireccion a la app y genera la notificacion persistente de foreground
+ * usada por los servicios que escuchan eventos en tiempo real.
+ */
+
 package com.example.esteticaapp.core.notifications
 
 import android.app.Notification

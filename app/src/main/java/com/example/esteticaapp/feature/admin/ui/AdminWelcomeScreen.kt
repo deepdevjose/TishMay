@@ -1,3 +1,10 @@
+/*
+ * AdminWelcomeScreen es la pantalla inicial del flujo de administracion.
+ * Muestra bienvenida y accesos directos para gestionar citas y galeria,
+ * permite configurar la capacidad operativa del local por turno,
+ * y genera un resumen inteligente de la agenda del dia con proxima cita.
+ */
+
 package com.example.esteticaapp.feature.admin.ui
 
 import android.Manifest

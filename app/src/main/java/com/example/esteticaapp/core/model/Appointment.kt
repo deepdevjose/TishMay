@@ -1,3 +1,10 @@
+/*
+ * Appointment representa una cita agendada en la aplicación.
+ * Guarda identificadores del usuario y de la cita, datos del cliente,
+ * servicio, fecha/hora, estado y metadatos de creación.
+ * También permite datos opcionales como reseña y código de invitación.
+ */
+
 package com.example.esteticaapp.core.model
 
 data class Appointment(

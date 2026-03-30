@@ -1,3 +1,10 @@
+/*
+ * BootReceiver escucha el evento ACTION_BOOT_COMPLETED del sistema.
+ * Al encender el dispositivo, restaura servicios de notificaciones segun
+ * el estado guardado en preferencias (priorizando el flujo de administrador).
+ * Incluye un wrapper para iniciar servicios de forma segura segun la version de Android.
+ */
+
 package com.example.esteticaapp.core.notifications
 
 import android.content.BroadcastReceiver

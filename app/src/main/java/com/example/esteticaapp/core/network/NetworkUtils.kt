@@ -1,3 +1,11 @@
+/*
+ * NetworkUtils centraliza utilidades de conectividad de red.
+ * Verifica si hay internet real (capacidad INTERNET + VALIDATED)
+ * y expone un flujo reactivo para observar cambios de conexión.
+ * Incluye un retraso corto antes de reportar "sin conexión" para
+ * evitar falsos negativos durante cambios rápidos de red o wake/unlock.
+ */
+
 package com.example.esteticaapp.core.network
 
 import android.content.Context

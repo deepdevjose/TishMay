@@ -1,3 +1,11 @@
+/*
+ * ClientNotificationService corre en primer plano para clientas autenticadas.
+ * Escucha en Realtime Database la ruta 'client_notifications/{uid}'
+ * y muestra notificaciones locales cuando hay entradas recientes no leidas.
+ * Al notificar, marca cada entrada como leida para evitar duplicados
+ * y remueve el listener cuando el servicio se destruye.
+ */
+
 package com.example.esteticaapp.core.notifications
 
 import android.app.Service

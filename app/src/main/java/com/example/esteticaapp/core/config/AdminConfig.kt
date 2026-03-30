@@ -1,3 +1,10 @@
+/*
+ * AdminConfig centraliza la validacion de administradores.
+ * Consulta Firestore (coleccion 'administradores') usando el email como ID de documento
+ * para determinar si el usuario tiene privilegios de administrador.
+ * Tambien registra logs de diagnostico y devuelve false si ocurre un error.
+ */
+
 package com.example.esteticaapp.core.config
 
 import android.util.Log

@@ -1,3 +1,10 @@
+/*
+ * TISHMAY es la clase Application global de la app.
+ * Se ejecuta al iniciar el proceso y centraliza configuraciones compartidas.
+ * Aquí se inicializa Cloudinary (MediaManager) con las credenciales del proyecto
+ * para habilitar la carga y gestion de archivos multimedia en toda la aplicacion.
+ */
+
 package com.example.esteticaapp.app
 
 import android.app.Application
