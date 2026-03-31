@@ -1,8 +1,8 @@
 {
   "project_info": {
     "project_number": "797437624053",
-    "project_id": "estetica-e0333",
     "firebase_url": "https://estetica-e0333-default-rtdb.firebaseio.com",
+    "project_id": "estetica-e0333",
     "storage_bucket": "estetica-e0333.firebasestorage.app"
   },
   "client": [
@@ -20,6 +20,14 @@
           "android_info": {
             "package_name": "com.example.esteticaapp",
             "certificate_hash": "0d6b81aa07e716d27e1c2230c8909bacb4ba68be"
+          }
+        },
+        {
+          "client_id": "797437624053-i7v7s13j7nq58jouj9fajh88la3vvp80.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.esteticaapp",
+            "certificate_hash": "cabdeacc5352e90c63377d4b02fc772d67291aca"
           }
         },
         {

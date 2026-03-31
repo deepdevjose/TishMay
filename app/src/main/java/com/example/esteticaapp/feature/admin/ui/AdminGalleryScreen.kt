@@ -286,7 +286,7 @@ private fun AdminServiceCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun AdminServiceManagementDialog(
     item: GaleriaItem,
@@ -414,11 +414,12 @@ private fun AdminServiceManagementDialog(
                     )
                     
                     Text("Categoría del servicio", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
-                    Row(
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         categories.forEach { cat ->
                             val isSel = category == cat

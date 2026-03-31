@@ -1,6 +1,7 @@
 package com.example.esteticaapp.feature.auth.presentation
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.example.esteticaapp.R
 
 class LoginViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
@@ -32,13 +34,13 @@ class LoginViewModel : ViewModel() {
             try {
                 val credentialManager = CredentialManager.create(context)
                 
-                // Web Client ID (tipo 3) obtenido de google-services.json
-                val webClientId = "797437624053-h95fnd559c6gt3f5qjh8n3lmi7ghv1pl.apps.googleusercontent.com" 
+                // Fallback manual to avoid compilation error if R.string.default_web_client_id is missing
+                val webClientId = "797437624053-h95fnd559c6gt3f5qjh8n3lmi7ghv1pl.apps.googleusercontent.com"
 
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(webClientId)
-                    .setAutoSelectEnabled(true)
+                    .setAutoSelectEnabled(false)
                     .build()
 
                 val request = GetCredentialRequest.Builder()
@@ -48,7 +50,6 @@ class LoginViewModel : ViewModel() {
                 val result = credentialManager.getCredential(context, request)
                 val credential = result.credential
 
-                // Usamos GoogleIdTokenCredential.createFrom(credential.data) para parsear el token correctamente
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 
                 val firebaseCredential = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
@@ -62,14 +63,16 @@ class LoginViewModel : ViewModel() {
                 }
                 
             } catch (e: GetCredentialException) {
+                Log.e("LoginViewModel", "Google Sign In Error: ${e.message}", e)
                 val errorMessage = when {
                     e is GetCredentialCancellationException -> "Inicio de sesión cancelado."
                     e is NoCredentialException || e.message?.contains("No credentials available") == true -> 
-                        "No sincronizó con Google. Verifica tu conexión a internet."
-                    else -> "Error de autenticación con Google: ${e.localizedMessage}"
+                        "No sincronizó con Google. Asegúrate de haber agregado la firma SHA-1 correcta en Firebase y haber actualizado el google-services.json."
+                    else -> "Error de configuración: ${e.localizedMessage}"
                 }
                 _loginState.value = LoginUiState.Error(errorMessage)
             } catch (e: Exception) {
+                Log.e("LoginViewModel", "Unexpected Error: ${e.message}", e)
                 _loginState.value = LoginUiState.Error("Error inesperado: ${e.message}")
             }
         }
@@ -77,13 +80,11 @@ class LoginViewModel : ViewModel() {
 
     private suspend fun checkUserExists(uid: String, email: String?) {
         try {
-            // Verificar si es administrador consultando Firestore
             if (AdminConfig.isAdmin(email)) {
                 _loginState.value = LoginUiState.Success(navigateTo = "admin_welcome")
                 return
             }
 
-            // Buscar el uid en la colección 'clientes' de Firestore
             val document = db.collection("clientes").document(uid).get().await()
             if (document.exists()) {
                 _loginState.value = LoginUiState.Success(navigateTo = "main")
@@ -99,4 +100,3 @@ class LoginViewModel : ViewModel() {
         _loginState.value = LoginUiState.Idle
     }
 }
-

@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">TishMay</string>
+    <string name="default_web_client_id">797437624053-h95fnd559c6gt3f5qjh8n3lmi7ghv1pl.apps.googleusercontent.com</string>
     <string name="default_username">Usuario</string>
     <string name="achievement_frequent_title">Cliente Frecuente</string>
     <string name="achievement_frequent_subtitle">3 citas completadas</string>

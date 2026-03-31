@@ -436,7 +436,7 @@ fun AgendaScreen() {
                     LocationPanel(
                         onClose = { showLocationPanel = false },
                         onOpenMaps = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.app.goo.gl/YourMapLink"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.app.goo.gl/6gWpEAHYXWZpP9AH8"))
                             context.startActivity(intent)
                         }
                     )
